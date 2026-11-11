@@ -1,0 +1,17 @@
+services:
+  nas-audio-finder:
+    build: .
+    image: nas-audio-finder:local
+    container_name: nas-audio-finder
+    ports:
+      - "8099:8080"
+    environment:
+      PUID: "99"
+      PGID: "100"
+      TZ: America/Chicago
+      APP_PASSWORD: "${APP_PASSWORD:-}"
+    volumes:
+      - /mnt/user/media/Music:/music:rw
+      - /mnt/user/appdata/nas-audio-finder:/config:rw
+    restart: unless-stopped
+    stop_grace_period: 75s

@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>nas-audio-finder</Name>
+  <Repository>nas-audio-finder:local</Repository>
+  <Registry></Registry>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <Support></Support>
+  <Project></Project>
+  <Overview>Scan your local music library by modified date and audio duration. Select audio formats, review search results, export CSV, and confirm permanent deletion. Build the bundled Dockerfile on this Unraid server before applying this template.</Overview>
+  <Category>MediaApp:Music Tools:</Category>
+  <WebUI>http://[IP]:[PORT:8080]/</WebUI>
+  <Icon></Icon>
+  <ExtraParams>--stop-timeout=75</ExtraParams>
+  <Config Name="Web GUI port" Target="8080" Default="8099" Mode="tcp" Description="Open http://your-unraid-ip:8099" Type="Port" Display="always" Required="true" Mask="false">8099</Config>
+  <Config Name="Music library" Target="/music" Default="/mnt/user/media/Music" Mode="rw" Description="Local Unraid folder containing music. Read/write is required for deletion." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/media/Music</Config>
+  <Config Name="App data" Target="/config" Default="/mnt/user/appdata/nas-audio-finder" Mode="rw" Description="Persistent duration cache; use your appdata share." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/nas-audio-finder</Config>
+  <Config Name="User ID" Target="PUID" Default="99" Mode="" Description="Unraid nobody user; change if your library uses another owner." Type="Variable" Display="advanced" Required="true" Mask="false">99</Config>
+  <Config Name="Group ID" Target="PGID" Default="100" Mode="" Description="Unraid users group." Type="Variable" Display="advanced" Required="true" Mask="false">100</Config>
+  <Config Name="Time zone" Target="TZ" Default="America/Chicago" Mode="" Description="Container time zone; the browser displays timestamps in its local zone." Type="Variable" Display="advanced" Required="true" Mask="false">America/Chicago</Config>
+  <Config Name="Optional web password" Target="APP_PASSWORD" Default="" Mode="" Description="Optional Basic Auth password; username admin. Use only on a trusted LAN or behind an HTTPS reverse proxy." Type="Variable" Display="always" Required="false" Mask="true"></Config>
+</Container>
