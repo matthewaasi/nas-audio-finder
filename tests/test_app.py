@@ -81,6 +81,7 @@ class ScannerTests(Fixture):
         path = self.file("track.mp3")
         self.start()
         path.write_bytes(b"changed size")
+        os.utime(path, (time.time()-1, time.time()-1))
         self.start()
         self.assertEqual(len(self.calls), 2)
 

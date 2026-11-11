@@ -1,14 +1,15 @@
 services:
   nas-audio-finder:
     build: .
-    image: nas-audio-finder:local
+    image: nas-audio-finder:2.0.0
     container_name: nas-audio-finder
     ports:
       - "8099:8080"
     environment:
       PUID: "99"
       PGID: "100"
-      TZ: America/Chicago
+      TZ: UTC
+      HISTORY_LIMIT: "30"
       APP_PASSWORD: "${APP_PASSWORD:-}"
     volumes:
       - /mnt/user/media/Music:/music:rw

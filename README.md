@@ -1,109 +1,112 @@
 # NAS Audio Finder
 
-A lightweight, self-hosted audio metadata search tool for **Unraid and Docker**.
-Find audio files by modification date and duration, inspect matches in a web GUI,
-export CSV, and permanently delete selected files after confirmation.
+Self-hosted audio metadata search and library cleanup for **Unraid and Docker**.
+Scan files directly on the NAS, inspect matches in a web GUI, and quarantine
+unwanted files with a restore option. No cloud service and no audio playback.
 
-Built for large music libraries: scan directly on the NAS instead of opening
-thousands of files over SMB from a desktop computer.
+## v2.0.0: library management
 
-## Releases
+| Feature | Behavior |
+| --- | --- |
+| Quarantine and restore | Move selected files out of the library; restore to the original path without overwriting existing files |
+| Optional retention cleanup | Automatically purge expired quarantine items only after you explicitly enable and acknowledge the policy |
+| Saved presets | Save date, duration, format, metadata, health and duplicate-analysis settings |
+| Persistent results and history | Reopen previous results, restore partial checkpoints after a restart, retain the most recent 30 scans by default |
+| Scheduled scans | One daily UTC scan using a saved preset; never automatically deletes or quarantines scan results |
+| Audio health | Identify unreadable/no-audio files, zero duration, optional low lossy bitrate and optional full-decode errors |
+| Metadata filters | Artist, album, codec, bitrate, sample rate and file size |
+| Duplicates | SHA256 exact-file groups and optional perceptual acoustic candidates across formats |
 
-| Version | What it includes | Docker image archive |
-| --- | --- | --- |
-| **[v1.1.0 — current](https://github.com/matthewaasi/nas-audio-finder/releases/tag/v1.1.0)** | Metadata search, export, and deletion; no playback | `nas-audio-finder-no-playback-amd64.tar` |
-| [v1.0.0](https://github.com/matthewaasi/nas-audio-finder/releases/tag/v1.0.0) | Original Docker release with browser playback and compatible MP3 conversion | `nas-audio-finder-unraid-amd64.tar` |
+Existing recursive searches, format checkboxes, date and duration filters,
+adjustable readers, cancellation, sorting, pagination, CSV export, and confirmed
+permanent deletion remain available. Supported extensions: M4A, MP3, FLAC, WAV,
+AAC, OGG, Opus, AIFF/AIF, WMA, and APE. Default filter: seven days, 25–35 seconds.
 
-Both releases target **Linux x86-64 (`linux/amd64`)**. Each includes an Unraid
-template, source ZIP, checksums, and image provenance. Images are loaded from
-release assets; they are **not published to Docker Hub or GHCR**.
+## Download and install on Unraid
 
-## Features
+[Download v2.0.0](https://github.com/matthewaasi/nas-audio-finder/releases/tag/v2.0.0)
+and get **`nas-audio-finder-v2.0.0-amd64.tar`** plus **`unraid-template.xml`**.
+The prebuilt image targets Linux x86-64. No local image build is required.
 
-- Search recursively by file modification date and inclusive duration range.
-- Choose formats using a dropdown with checkboxes: M4A, MP3, FLAC, WAV, AAC,
-  OGG, Opus, AIFF/AIF, WMA, and APE.
-- Defaults: modified in the last seven days, duration 25–35 seconds.
-- FFprobe metadata extraction, including fragmented M4A with zero main headers.
-- Persistent SQLite cache; unchanged files reuse their duration.
-- Adjustable concurrency (1–32 readers), cancellation, timing, and error reports.
-- Sort, filter, paginate, and select results across pages.
-- Export matching metadata to CSV.
-- Confirmed permanent deletion with checks for files changed since scanning.
-
-## Install on Unraid using `docker load`
-
-1. Download the `.tar` image and `unraid-template.xml` from the desired release.
-2. Copy them to your Unraid appdata share.
-3. Open the Unraid terminal. For v1.1.0:
+1. Copy both files to your Unraid appdata share.
+2. In the Unraid terminal:
 
    ```sh
-   docker load -i /mnt/user/appdata/nas-audio-finder-no-playback-amd64.tar
+   docker load -i /mnt/user/appdata/nas-audio-finder-v2.0.0-amd64.tar
    mkdir -p /boot/config/plugins/dockerMan/templates-user
    cp /mnt/user/appdata/unraid-template.xml /boot/config/plugins/dockerMan/templates-user/my-nas-audio-finder.xml
    ```
 
-4. Open **Docker → Add Container** and select **nas-audio-finder** in Template.
-5. Use repository `nas-audio-finder:1.1.0` for the current release. The archive
-   also supplies `nas-audio-finder:local`. The v1.0.0 archive supplies `:local`.
-6. Verify your mappings:
+3. Open **Docker → Add Container**, select **nas-audio-finder**, and verify:
 
-   | Setting | Host | Container |
+   | Setting | Host example | Container |
    | --- | --- | --- |
-   | Web GUI | Port `8099` | Port `8080/TCP` |
-   | Music library | Your local folder, e.g. `/mnt/user/media/Music` | `/music` (read/write for deletion) |
-   | Persistent cache | `/mnt/user/appdata/nas-audio-finder` | `/config` (read/write) |
-   | Permissions | `PUID=99`, `PGID=100` by default | Change to match library access |
+   | Repository | `nas-audio-finder:2.0.0` | Locally loaded image |
+   | Web port | `8099` | `8080/TCP` |
+   | Music library | `/mnt/user/media/Music` — change to your actual local folder | `/music`, read/write for file actions |
+   | Appdata | `/mnt/user/appdata/nas-audio-finder` | `/config`, read/write |
+   | Permissions | PUID `99`, PGID `100` by default | Change if your library uses different permissions |
 
-7. Apply and open `http://YOUR-UNRAID-IP:8099`.
+4. Apply and open `http://YOUR-UNRAID-IP:8099`.
 
-Use a **local Unraid path**, not an SMB mount back to the NAS. Paths are
-case-sensitive. Do not request a registry pull for these locally loaded images.
-The Unraid template can be downloaded directly from each release.
+Use local Unraid folders, not an SMB mount back to the NAS. The images are
+release assets, not Docker Hub/GHCR images; do not request a registry pull.
 
-### Upgrade or switch versions
+### Upgrade from v1.x
 
-Stop the container, load the desired archive, and **recreate** the container
-using your template and existing mappings. A restart alone does not replace its
-image. Keep `/config` to preserve the duration cache. Both original archives
-include the `:local` tag, so loading one changes which image that tag references.
-For v1.1.0 use the immutable version tag `:1.1.0` to avoid that ambiguity.
+Stop the container and back up its `/config` directory. Load the new archive,
+set the existing template's Repository to `nas-audio-finder:2.0.0`, and recreate
+the container with the same music/appdata mappings. A restart alone does not
+replace the image. SQLite tables are added without removing the v1 duration
+cache; the first v2 scan rereads metadata to populate richer fields. Library
+files are not changed by upgrading or scanning.
 
-### Run with Docker directly
+Quarantine defaults to `/music/.nas-audio-finder-quarantine` and is excluded
+from scanning. No new volume mapping is necessary. Keep both `/config` and the
+quarantine files to preserve restore information. For a separate quarantine
+volume, map a dedicated writable folder and set `QUARANTINE_ROOT` to that mount;
+do not change the root while it contains quarantined files.
 
-After loading v1.1.0:
+## Safety and analysis scope
 
-```sh
-docker run -d --name nas-audio-finder --restart unless-stopped --stop-timeout 75 \
-  -p 8099:8080 -e PUID=99 -e PGID=100 \
-  -v /path/to/music:/music:rw \
-  -v /path/to/appdata:/config:rw nas-audio-finder:1.1.0
-```
+- Quarantine is the primary action. Restore never overwrites an existing path.
+- Permanent delete and quarantine purge require confirmation. **They cannot be undone.**
+  Container-local deletion may bypass SMB recycle-bin plugins.
+- Automatic quarantine cleanup is **disabled by default** and requires explicit
+  acknowledgement. Once enabled, it also applies to already quarantined files.
+- Schedules only scan. They never act on matches. Retention cleanup is a separate,
+  explicitly enabled policy for files you already quarantined.
+- Size, timestamp, device and inode checks refuse changed files. Symlinks are
+  skipped. Avoid other applications moving/replacing files during file actions;
+  path-based checks cannot eliminate every filesystem race.
+- SHA256 means identical file bytes, including tags. Acoustic grouping is
+  approximate, uses up to the first 120 seconds, skips silence/featureless
+  signatures, and compares bounded near-duration candidates. False positives
+  and missed matches are possible. Review every candidate; nothing is deleted
+  automatically because it is marked a duplicate.
+- Hashing/full decoding read entire files; acoustic analysis decodes up to 120
+  seconds. All are opt-in and can increase CPU, disk traffic and scan time.
+- Duplicate groups cover the **matching results of that scan**. Use all dates,
+  broad durations and chosen formats to check a wider library.
 
-Set `APP_PASSWORD` to require a web password (username `admin`). Use this app on
-a trusted LAN; use HTTPS through a reverse proxy for access beyond that network.
+## Usage
 
-## How it works
+See [Operations guide](docs/OPERATIONS.md) for presets, history, UTC scheduling,
+quarantine management, health statuses, persistence, permissions, and tuning.
+[CHANGELOG.md](CHANGELOG.md) covers every release.
 
-A Python HTTP server provides the web GUI and API. A directory walker checks
-extensions and timestamps before adding recent files to a bounded queue.
-Concurrent FFprobe workers read audio metadata without decoding the whole track.
-SQLite caches duration by relative path, size, and modification timestamp.
-
-Results stay on the server and are paginated to the browser. Deletion uses a
-short-lived confirmation and rechecks size, timestamp, device, and inode before
-unlinking. Symlinks and symlinked directories are skipped.
-
-**Deletion is permanent.** Container-local deletion can bypass SMB recycle-bin
-plugins. Review every selected path and maintain appropriate backups. Avoid
-concurrent moves/replacements while deleting; path checks do not eliminate all
-filesystem races. Mount `/music` read-only for scanning/export only.
+| Release | Description |
+| --- | --- |
+| [v2.0.0](https://github.com/matthewaasi/nas-audio-finder/releases/tag/v2.0.0) | Library management, quarantine, schedules, health checks, richer filters, duplicates |
+| [v1.1.0](https://github.com/matthewaasi/nas-audio-finder/releases/tag/v1.1.0) | Original metadata-only version |
+| [v1.0.0](https://github.com/matthewaasi/nas-audio-finder/releases/tag/v1.0.0) | Original version with browser playback |
 
 ## Development and validation
 
-The default branch is v1.1.0. The `v1.0.0` tag preserves playback source.
-See [CHANGELOG.md](CHANGELOG.md) for release history and [docs/OPERATIONS.md](docs/OPERATIONS.md)
-for detailed behavior, cache management, and troubleshooting.
+Python's standard library supplies HTTP, SQLite, queues, hashing and persistence.
+FFprobe reads metadata. FFmpeg is included **only for optional decoding and
+acoustic analysis**, not for browser playback. Application source is MIT licensed;
+bundled tools retain their upstream licenses. See [third-party notices](THIRD_PARTY_NOTICES.md).
 
 ```sh
 python -m unittest discover -s tests -v
@@ -111,18 +114,14 @@ node --check static/app.js
 docker build -t nas-audio-finder:dev .
 ```
 
-The Dockerfile builds from source using Debian FFprobe packages. Distributed
-image archives use verified official Python base layers and upstream static
-FFprobe tools (plus FFmpeg in v1.0.0); provenance is attached to each release.
+30 tests completed successfully (29 passed; one Windows symlink test skipped). Tests include real
+WAV, FLAC, MP3 and fragmented M4A files, full decoding, cross-format acoustic
+matching, cross-volume moves, overwrite/tampering protections, persistence,
+scheduling and API confirmation flows. Browser QA verified a scan and metadata
+results. Image configuration, source contents and layer SHA256s are verified.
+The build host has no Docker/Linux runtime, so Linux container startup and
+performance on Unraid remain unverified in this environment.
 
-Application tests and archive/layer integrity checks passed on Windows. The
-Linux containers could not be runtime-tested in the build environment. Actual
-Unraid startup, library throughput, and format compatibility need verification
-on the target server. The symlink test is skipped on Windows without symlink
-privileges and is intended to run on Linux as well.
-
-## License and dependencies
-
-The application source is MIT licensed. Bundled Python, Debian components, and
-FFmpeg/FFprobe retain their respective upstream licenses. See
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and release provenance.
+Use on a trusted LAN. Set `APP_PASSWORD` for Basic Auth (username `admin`) and
+use HTTPS through a reverse proxy for access outside that LAN. Multiple tabs
+share one scanner, current result view, presets and configuration.

@@ -149,7 +149,7 @@ class Finder:
             high = float(settings.get("maximum", 35))
             workers = int(settings.get("workers", 4))
             formats = settings.get("formats", [])
-            if not all(math.isfinite(v) for v in (days, low, high)) or not (0 < days <= 36500 and 0 <= low <= high <= 604800):
+            if not all(math.isfinite(v) for v in (days, low, high)) or not (0 <= days <= 36500 and 0 <= low <= high <= 604800):
                 raise ValueError("Invalid date or duration range")
             if not 1 <= workers <= 32:
                 raise ValueError("Readers must be between 1 and 32")
@@ -157,6 +157,7 @@ class Finder:
                 raise ValueError("Select at least one supported audio format")
             self.settings = dict(folder=str(root.relative_to(self.media)) if root != self.media else "",
                                  days=days, minimum=low, maximum=high, workers=workers, formats=sorted(set(formats)))
+            self.settings.update(self.extra_settings(settings))
             self.results.clear()
             self.errors.clear()
             self.confirmations.clear()
@@ -166,13 +167,14 @@ class Finder:
             self.progress.update(phase="scanning", message="Scanning local files")
             self.started = time.monotonic()
             self.cancel.clear()
+            self.scan_start()
             self.thread = threading.Thread(target=self.scan, args=(root, dict(self.settings)), daemon=True)
             self.thread.start()
 
     def scan(self, root, settings):
         work = queue.Queue(maxsize=settings["workers"] * 8)
         now = time.time()
-        cutoff = now - settings["days"] * 86400
+        cutoff = now - settings["days"] * 86400 if settings["days"] else float("-inf")
 
         def consume():
             while True:
@@ -209,7 +211,7 @@ class Finder:
                         begin = time.monotonic()
                         item = None
                         try:
-                            if entry.is_symlink():
+                            if entry.is_symlink() or self.exclude(Path(entry.path)):
                                 continue
                             if entry.is_dir(follow_symlinks=False):
                                 pending.append(Path(entry.path))
@@ -255,6 +257,12 @@ class Finder:
                 self.progress["elapsed"] = time.monotonic() - self.started
                 self.progress["phase"] = "failed" if fatal else "cancelled" if self.cancel.is_set() else "complete"
                 self.progress["message"] = fatal or ("Cancelled; partial results retained" if self.cancel.is_set() else "Scan complete")
+            self.scan_finish()
+
+    def extra_settings(self, settings): return {}
+    def scan_start(self): pass
+    def scan_finish(self): pass
+    def exclude(self, path): return False
 
     def inspect(self, relative, original, settings):
         try:
@@ -297,13 +305,13 @@ class Finder:
             self.error(relative, error)
 
     def rows(self, search="", sort="path", reverse=False):
-        if sort not in {"path", "duration", "modified", "size", "format"}:
+        if sort not in {"path", "duration", "modified", "size", "format", "bitrate", "sample_rate", "artist", "album", "codec", "health", "duplicate"}:
             raise ValueError("Invalid sort column")
         with self.lock:
             rows = list(self.results.values())
         if search:
             rows = [r for r in rows if search.casefold() in r["path"].casefold()]
-        return sorted(rows, key=lambda r: (r[sort].casefold() if isinstance(r[sort], str) else r[sort], r["path"]), reverse=reverse)
+        return sorted(rows, key=lambda r: (r.get(sort) is None, r.get(sort, "").casefold() if isinstance(r.get(sort, ""), str) else r.get(sort) or 0, r["path"]), reverse=reverse)
 
     def stop(self):
         with self.lock:
@@ -419,26 +427,32 @@ class Handler(BaseHTTPRequestHandler):
             parsed = urlsplit(self.path)
             query = parse_qs(parsed.query)
             get = lambda key, default="": query.get(key, [default])[0]
+            extra = self.extra_get(parsed.path, get)
+            if extra is not None:
+                return self.send(200, extra)
             if parsed.path == "/api/state":
                 return self.send(200, self.app.state())
             if parsed.path in ("/api/results", "/api/selection", "/api/export"):
                 rows = self.app.rows(get("search"), get("sort", "path"), get("reverse") == "1")
+                if get("duplicates") == "1":
+                    rows = [r for r in rows if r.get("duplicate")]
                 if parsed.path == "/api/selection":
                     return self.send(200, {"ids": [r["id"] for r in rows]})
                 if parsed.path == "/api/export":
                     output = io.StringIO(newline="")
                     writer = csv.writer(output)
-                    writer.writerow(["Path relative to /music", "Modified UTC", "Duration seconds", "Bytes", "Format"])
+                    writer.writerow(["Path relative to /music", "Modified UTC", "Duration seconds", "Bytes", "Format", "Codec", "Bitrate bps", "Sample rate Hz", "Artist", "Album", "Health", "Duplicate group"])
                     for r in rows:
                         # Prevent spreadsheet formula evaluation from file names.
                         path = r["path"]
                         if path[:1] in ("=", "+", "-", "@", "\t", "\r"):
                             path = "'" + path
-                        writer.writerow([path, time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(r["modified"])), r["duration"], r["size"], r["format"]])
+                        values=[path, time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(r["modified"])), r["duration"], r["size"], r["format"], r.get("codec", ""), r.get("bitrate", ""), r.get("sample_rate", ""), r.get("artist", ""), r.get("album", ""), r.get("health", ""), r.get("duplicate", "")]
+                        writer.writerow([("'"+v if isinstance(v,str) and v[:1] in ("=","+","-","@","\t","\r") else v) for v in values])
                     return self.send(200, output.getvalue().encode("utf-8-sig"), "text/csv", {"Content-Disposition": 'attachment; filename="audio-results.csv"'})
                 offset = max(0, int(get("offset", "0")))
                 limit = max(1, min(200, int(get("limit", "100"))))
-                clean = [{k: v for k, v in row.items() if k != "signature"} for row in rows[offset:offset + limit]]
+                clean = [{k: v for k, v in row.items() if k not in ("signature", "fingerprint", "quarantine_signature")} for row in rows[offset:offset + limit]]
                 return self.send(200, {"rows": clean, "total": len(rows)})
             if parsed.path == "/api/errors":
                 with self.app.lock:
@@ -482,15 +496,21 @@ class Handler(BaseHTTPRequestHandler):
                 self.app.delete(data.get("confirmation", ""))
                 result = {"ok": True}
             else:
-                return self.send(404, {"error": "Not found"})
+                result = self.extra_post(route, data)
+                if result is None:
+                    return self.send(404, {"error": "Not found"})
             self.send(200, result)
         except (ValueError, TypeError, OSError) as error:
             self.send(400, {"error": str(error)})
 
+    def extra_get(self, route, get): return None
+    def extra_post(self, route, data): return None
+
 
 def main():
-    finder = Finder(os.getenv("MEDIA_ROOT", "/music"), os.getenv("CONFIG_ROOT", "/config"))
-    server = ThreadingHTTPServer(("0.0.0.0", int(os.getenv("PORT", "8080"))), Handler)
+    from library import LibraryFinder, LibraryHandler
+    finder = LibraryFinder(os.getenv("MEDIA_ROOT", "/music"), os.getenv("CONFIG_ROOT", "/config"))
+    server = ThreadingHTTPServer(("0.0.0.0", int(os.getenv("PORT", "8080"))), LibraryHandler)
     server.finder = finder
     def stop(*_):
         threading.Thread(target=server.shutdown, daemon=True).start()

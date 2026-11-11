@@ -1,170 +1,113 @@
-# NAS Audio Finder for Unraid
+# NAS Audio Finder v2 operations
 
-A self-hosted Docker application that scans local music files by modified date
-and duration. It includes a web GUI, persistent metadata caching,
-CSV export, and confirmed permanent deletion. There are no cloud services, CDNs,
-or JavaScript dependencies.
+## Searches and presets
 
-## Install on Unraid
+Choose formats in the checkbox dropdown. Dates are file modification timestamps
+in a rolling window; **0 days** means all dates. Future timestamps are excluded.
+Duration bounds are inclusive. Leave Subfolder empty to scan the mounted root.
+Expand metadata filters for artist/album/codec substring filters, bitrate in
+kbps, sample rate in Hz and size in MiB. Empty numeric fields mean unrestricted.
+Save the current filters under a preset name; select and Load to reuse them.
+Saved presets survive restarts and include health/duplicate options.
 
-The separately supplied `nas-audio-finder-unraid-amd64.tar` is a prebuilt
-Docker-load image archive. To use it, copy it to your appdata share and run:
+## Health checks
 
-```sh
-docker load -i /mnt/user/appdata/nas-audio-finder-unraid-amd64.tar
-```
+Metadata statuses: `metadata-ok`, `zero-duration`, `unreadable`, and optional
+`low-bitrate`. The low-bitrate threshold applies only to known lossy codecs,
+not FLAC/ALAC/APE/WavPack/PCM. Full decode is opt-in and produces `decode-ok` or
+`decode-error`. Hover the health column for diagnostic detail. FFprobe failures
+also appear in the error log. A metadata check alone does not prove that the
+entire file decodes correctly.
 
-Then install the XML template using steps 2–4 below (skip `docker build`).
-No image is published to a registry. Keep repository `nas-audio-finder:local`.
-The prebuilt archive uses verified official Python layers plus static FFmpeg
-tools; the Dockerfile below alternatively installs Debian FFmpeg packages.
+The default health view includes matching files plus unreadable candidates
+whose metadata cannot be trusted. These may not satisfy duration/tag filters.
+The Health issues view deliberately ignores duration bounds for problematic
+files (zero duration could otherwise never match a 25–35-second filter).
+Healthy-only excludes all flagged files. Other metadata filters still apply
+when the relevant metadata is available.
 
-If building from this source package instead, build once on your Unraid server.
-Docker is already part of Unraid.
+## Exact and acoustic duplicates
 
-1. Extract the ZIP onto an Unraid share, for example
-   `/mnt/user/appdata/nas-audio-finder-build`. The directory containing
-   `Dockerfile` is the build directory.
-2. Open the Unraid terminal and run, adjusting the first path to that directory:
+Select SHA256, acoustic, both, or off before scanning. SHA256 reads the whole
+file and groups identical bytes. Different tags or containers change this hash.
+Acoustic analysis decodes mono 8 kHz PCM from up to the first 120 seconds,
+builds time-varying spectral band signatures and compares near-duration
+candidates. Comparisons allow small alignment differences. A bounded index
+limits candidate comparisons to protect large-library performance; results
+are approximate and not exhaustive. Silence and featureless tone signatures
+do not produce acoustic matches. Full songs with matching introductions can
+still be different recordings. Review candidates before acting.
 
-   ```sh
-   cd /mnt/user/appdata/nas-audio-finder-build
-   docker build -t nas-audio-finder:local .
-   cp unraid-template.xml /boot/config/plugins/dockerMan/templates-user/my-nas-audio-finder.xml
-   ```
+Only matching scan results are grouped. Use 0 days and a broad duration range
+for a library-wide duplicate search. Duplicate groups persist with history;
+they do not automatically select a copy to keep or remove. Use the Duplicate
+groups only checkbox to narrow the results table/export.
 
-3. In **Docker → Add Container**, choose the `nas-audio-finder` user template.
-   Keep the repository `nas-audio-finder:local` (the image you just built).
-   Check these mappings before clicking Apply:
+## Persistent results and history
 
-   | Setting | Host value | Container value |
-   | --- | --- | --- |
-   | Web port | `8099` | `8080` TCP |
-   | Music library | `/mnt/user/media/Music` | `/music`, read/write |
-   | App data | `/mnt/user/appdata/nas-audio-finder` | `/config`, read/write |
-   | PUID / PGID | `99` / `100` by default | User and group with music access |
+Results, errors, settings, presets, schedules and quarantine records live in
+SQLite under `/config/durations.sqlite3`. The last viewed scan reopens after a
+restart. Running scans are checkpointed about every 30 seconds; committed
+partial results are restored as interrupted and do not automatically resume.
+Loading a history changes the result view for all connected browsers. File
+actions still verify that each historical file matches its saved signature.
 
-   The default music mapping assumes the SMB path `\\YOUR-UNRAID-IP\media\Music`
-   corresponds to Unraid's `media` share with a `Music` subfolder. Confirm this
-   on your server; share names and paths are case-sensitive. Use the local
-   `/mnt/user/...` path, not an SMB mount back to the NAS itself.
+History retains the latest 30 scans by default; `HISTORY_LIMIT` accepts 1–1000.
+Older scan results are removed after a new scan completes. Quarantine manifests
+are independent and are not removed by scan-history pruning. The UI lists up
+to 100 recent scans. Cached metadata is invalidated when size/timestamp changes;
+deep health validation is rerun when requested. Only one container may use an
+appdata database at a time. Back up appdata while the container is stopped.
 
-4. Open **WebUI** from the container menu, or visit
-   `http://YOUR-UNRAID-IP:8099` if that is your Unraid server's address.
-5. Enable autostart in the Unraid Docker page if desired.
+## Scheduling
 
-Alternatively, with Docker Compose installed:
+Save a preset, choose it in Scheduled scans, set HH:MM in **UTC**, enable and
+save. There is one daily schedule. It runs once per UTC day after that time,
+waiting if the scanner is busy. If the container starts after the scheduled
+time, it can perform that day's pending scan. It does not run while stopped
+and does not replay every missed day. Removing its preset prevents future
+runs until a valid preset is selected. Scheduled scans never modify library
+files or quarantine their results.
 
-```sh
-docker compose up -d --build
-```
+## Quarantine, restore and cleanup
 
-Or launch directly after building:
+Select results and choose Quarantine. Review the complete path list and confirm.
+Files move to `/music/.nas-audio-finder-quarantine` by default, named with unique
+IDs. This location is always excluded from scanning. Moves on one filesystem
+use a hard-link/unlink operation; cross-volume moves use an exclusive copy,
+flush, metadata preservation and source-signature check before unlinking.
+The manifest is written before moving. Interrupted moves are reconciled on
+startup or marked needs-review without automatically deleting either copy.
 
-```sh
-docker run -d --name nas-audio-finder --restart unless-stopped --stop-timeout 75 \
-  -p 8099:8080 -e PUID=99 -e PGID=100 -e TZ=America/Chicago \
-  -v /mnt/user/media/Music:/music:rw \
-  -v /mnt/user/appdata/nas-audio-finder:/config:rw nas-audio-finder:local
-```
+Use the Quarantine table to restore selected files or permanently purge them.
+Restore refuses existing destinations and file-change mismatches. A failed
+cross-volume move can leave a partial file in quarantine; inspect needs-review
+entries and the log manually. Never remove or rearrange manifest/data files
+outside the app while operations are running.
 
-Do not launch both Compose and the Unraid template for the same instance.
-Rebuild the local image to update; this image has no registry update feed.
-After rebuilding or loading a new archive, recreate the container with the
-local image. Do not request a registry pull. Compose users can use
-`up -d --build --force-recreate` when building from source.
+Automatic cleanup is off. To enable it, expand its settings, choose retention
+days, check Enable, save and acknowledge permanent cleanup. Existing items are
+also subject to the policy. Cleanup runs when idle and refuses modified items.
+It permanently deletes only previously quarantined files older than the policy.
+Disabling the policy stops future cleanup, not a file action already underway.
 
-## Search and inspect results
+Permanent delete from results remains available separately. Purge and delete
+cannot be undone and can bypass SMB recycle plugins. Confirmation tokens expire
+after two minutes. Errors and per-action counts remain visible. Avoid concurrent
+file replacements: filesystem checks do not eliminate every path race.
 
-- Leave Subfolder blank for the whole library; enter `Artist/Album` to narrow it.
-- Select formats in the **Audio formats** dropdown using its checkboxes.
-  Supported extensions: M4A, MP3, FLAC, WAV, AAC, OGG, Opus, AIFF/AIF, WMA, APE.
-  The default selection is M4A, MP3, FLAC, and WAV. Extension matching ignores case.
-- Defaults: last 7 × 24 hours, 25–35 seconds inclusive, four readers.
-- Dates refer to each file's modification timestamp, not arrival/creation date.
-  Future-dated files are excluded. The browser displays dates in its local zone.
-- Start a scan. Results appear as files are processed. Cancel retains partial
-  results. Select the formats before each scan; changing them requires a new scan.
-- Adjust readers from 1 to 32. Start at 4; compare 8 and 16 for your storage.
-  More readers can help SSDs or hurt spinning disks due to seek contention.
-- Sort or filter results and navigate pages to inspect matching metadata.
-- CSV exports every currently filtered result, not just the visible page.
+## Permissions and tuning
 
-## Delete files
+Map music locally to `/music`, cache to `/config`; default PUID/PGID are 99/100.
+File actions require write access to parent directories. Startup changes ownership
+only on appdata and known SQLite files, never on the music tree. A read-only music
+mount supports scanning/export; file actions will report permission failures.
 
-Select individual rows, the current page, or **Select all matches** (all currently
-filtered results, including other pages). Selections remain when paging/filtering;
-the selected count is the deletion count. Clear selection to start over.
+Use 4 readers initially; compare 8/16 according to CPU and storage. Full decoding
+and acoustic analysis use CPU; hashing uses full-file disk I/O. Progress reports
+cumulative analysis worker-seconds, which can exceed wall time. Original v1
+duration cache is retained but richer v2 metadata requires one fresh probe.
 
-Deletion is disabled until the scan stops. The confirmation lists **every selected
-path** and requires an acknowledgement. Confirmations expire after two minutes.
-Successful deletions leave
-the results and cache; failures remain listed with an error report.
-
-**Deletion is permanent and bypasses any desktop recycle bin.** Unraid SMB recycle
-plugins may not intercept local container deletions. Use an appropriate backup.
-The app checks size, modification timestamp, inode, and device before unlinking.
-Changed files are refused. Do not let other applications move/replace files during
-deletion: path-based checks cannot eliminate every concurrent filesystem race.
-Folders are never deleted; symlinks and symlinked directories are excluded.
-
-Mount `/music` read-only for a scan-only deployment. Deletion then reports
-a permission error. The app never changes library ownership or permissions.
-
-## Performance and persistence
-
-Directory enumeration and metadata readers run concurrently with a bounded queue.
-Dates and extensions are checked before FFprobe opens a file. FFprobe handles
-ordinary and fragmented M4A, plus the other formats, without decoding the audio
-for scanning. It is limited to local file/pipe protocols. Unknown durations are
-reported as errors, never treated as zero.
-
-The SQLite cache in `/config` reuses duration when relative path, byte length, and
-modification timestamp match. Cache writes are committed every 100 new durations
-and at scan completion/cancellation. Stop the container before removing its cache
-if you need fresh metadata. A restart retains the cache but clears scan results,
-selections, and settings; rescan to reconstruct them. Only one container instance
-should use a given appdata directory.
-
-The GUI reports elapsed wall time, folder listing work, cumulative duration work,
-and cached/read counts. Duration worker-seconds accumulate across parallel readers
-and can exceed elapsed time. Rates are work-normalized averages, not disk bandwidth.
-Timings update when individual operations finish. The error panel shows the latest
-100 stored errors; the downloadable log retains the first 2,000 per operation.
-
-FFprobe has a 60-second per-file timeout. Cancel interrupts active probes. Network
-filesystem calls can still delay cancellation; local music mappings avoid that
-network path. Audio playback and transcoding are not included. Only FFprobe is needed for metadata.
-
-## Access and troubleshooting
-
-This is a LAN application. Do not publish the port directly to the internet.
-Set `APP_PASSWORD` to require HTTP Basic Auth (username `admin`); use an HTTPS
-reverse proxy for access beyond your trusted LAN. Passwords in Basic Auth over
-plain HTTP are not encrypted. Mutating requests also require a session token and
-same-origin checks. There is one shared library/session for all browser tabs.
-
-- **No files:** inspect `/music` mapping, case-sensitive subfolder, selected
-  formats, the date window, future timestamps, and error panel.
-- **Permissions:** ensure PUID/PGID can traverse/read the music tree and, for
-  deletion, write its containing directories. Defaults are Unraid nobody/users.
-- **Cache errors:** appdata must be writable. Startup changes ownership only on
-  the config directory and known SQLite files, never on the music library.
-- **Port busy:** change host port 8099; keep container port 8080.
-- **Build fails:** Unraid needs internet access to fetch the Python base image
-  and Debian FFmpeg packages. No registry account is needed.
-
-## Validation
-
-Run backend tests with `python -m unittest discover -s tests -v` and JavaScript
-syntax checks with `node --check static/app.js`. Tests use temporary local files
-and controlled metadata readers; no real music is deleted. The included tests
-exercise scanning, format selection, caching, cancellation, deletion safeguards,
-HTTP confirmation/CSRF flow, exports, and refusal of the removed playback endpoints.
-
-The package was built on Windows without a Docker engine or connected Unraid
-server. The actual Linux image build, NAS throughput, real FFprobe decoding, and
-container startup must be verified after installation on Unraid.
-
-Implementation references: [Unraid container mappings and settings](https://docs.unraid.net/unraid-os/using-unraid-to/run-docker-containers/managing-and-customizing-containers/),
-[FFprobe metadata and JSON output](https://www.ffmpeg.org/ffprobe.html).
+Use `docker logs nas-audio-finder` for startup errors. The UI shows the latest 100
+stored errors; the downloadable log retains up to 2,000 per operation. Use generic
+host paths in shared support reports, and never publish your password or appdata.

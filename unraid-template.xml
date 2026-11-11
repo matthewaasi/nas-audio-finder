@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>nas-audio-finder</Name>
-  <Repository>nas-audio-finder:local</Repository>
+  <Repository>nas-audio-finder:2.0.0</Repository>
   <Registry></Registry>
   <Network>bridge</Network>
   <Privileged>false</Privileged>
   <Support></Support>
   <Project></Project>
-  <Overview>Scan your local music library by modified date and audio duration. Select audio formats, review search results, export CSV, and confirm permanent deletion. Build the bundled Dockerfile on this Unraid server before applying this template.</Overview>
+  <Overview>Local audio metadata search with quarantine/restore, saved presets, persistent results and history, daily schedules, health checks, rich metadata filters, and exact/acoustic duplicate candidates. Load the release Docker archive before applying this template. No browser audio playback.</Overview>
   <Category>MediaApp:Music Tools:</Category>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
   <Icon></Icon>
@@ -17,6 +17,7 @@
   <Config Name="App data" Target="/config" Default="/mnt/user/appdata/nas-audio-finder" Mode="rw" Description="Persistent duration cache; use your appdata share." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/nas-audio-finder</Config>
   <Config Name="User ID" Target="PUID" Default="99" Mode="" Description="Unraid nobody user; change if your library uses another owner." Type="Variable" Display="advanced" Required="true" Mask="false">99</Config>
   <Config Name="Group ID" Target="PGID" Default="100" Mode="" Description="Unraid users group." Type="Variable" Display="advanced" Required="true" Mask="false">100</Config>
-  <Config Name="Time zone" Target="TZ" Default="America/Chicago" Mode="" Description="Container time zone; the browser displays timestamps in its local zone." Type="Variable" Display="advanced" Required="true" Mask="false">America/Chicago</Config>
+  <Config Name="Time zone" Target="TZ" Default="UTC" Mode="" Description="Daily scan schedules use UTC. The browser displays file dates in its own local time zone." Type="Variable" Display="advanced" Required="true" Mask="false">UTC</Config>
+  <Config Name="History limit" Target="HISTORY_LIMIT" Default="30" Mode="" Description="Maximum scan histories retained (1-1000). Quarantine records are independent." Type="Variable" Display="advanced" Required="true" Mask="false">30</Config>
   <Config Name="Optional web password" Target="APP_PASSWORD" Default="" Mode="" Description="Optional Basic Auth password; username admin. Use only on a trusted LAN or behind an HTTPS reverse proxy." Type="Variable" Display="always" Required="false" Mask="true"></Config>
 </Container>

@@ -1,10 +1,10 @@
 FROM python:3.12-slim-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
-    && rm -f /usr/bin/ffmpeg /usr/bin/ffplay \
     && rm -rf /var/lib/apt/lists/*
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PORT=8080 MEDIA_ROOT=/music CONFIG_ROOT=/config PUID=99 PGID=100
 WORKDIR /app
 COPY app.py /app/app.py
+COPY library.py /app/library.py
 COPY static /app/static
 COPY container_entrypoint.py /app/container_entrypoint.py
 RUN mkdir -p /music /config
