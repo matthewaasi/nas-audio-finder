@@ -1,6 +1,4 @@
-# NAS Audio Finder — v1.0.0
-
-This tag preserves the original version with audio playback. See the main branch for v1.1.0.
+# NAS Audio Finder
 
 A lightweight, self-hosted audio metadata search tool for **Unraid and Docker**.
 Find audio files by modification date and duration, inspect matches in a web GUI,

@@ -3,7 +3,12 @@
   "base_manifest": "sha256:0f086103b026048cc50cb5da25ec435c023c5241a83fc44daea593377abc61c4",
   "ffmpeg_url": "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz",
   "ffmpeg_sha256": "abda8d77ce8309141f83ab8edf0596834087c52467f6badf376a6a2a4c87cf67",
-  "created": "2026-11-11T19:06:37.310115Z",
+  "created": "2026-11-11T19:16:26.295375Z",
   "platform": "linux/amd64",
-  "image_tag": "nas-audio-finder:local"
+  "image_tag": "nas-audio-finder:local",
+  "version": "1.1.0",
+  "features": "metadata search, export, confirmed deletion; no audio playback",
+  "runtime_tools": [
+    "ffprobe"
+  ]
 }

@@ -175,11 +175,20 @@ class HTTPTests(Fixture):
         with self.request("/api/results?search=missing") as response:
             self.assertEqual(json.load(response)["total"], 0)
 
-    def test_audio_byte_range(self):
+    def test_playback_removed(self):
         ident = next(iter(self.finder.results))
-        with self.request("/api/audio?id=" + ident, headers={"Range": "bytes=10-19"}) as response:
-            self.assertEqual(response.status, 206)
-            self.assertEqual(response.read(), bytes(range(10, 20)))
+        for suffix in ("", "&compatible=1"):
+            with self.assertRaises(HTTPError) as caught:
+                self.request("/api/audio?id=" + ident + suffix)
+            self.assertEqual(caught.exception.code, 404)
+        with self.request("/") as response:
+            html = response.read().decode()
+            self.assertNotIn("<audio", html)
+            self.assertNotIn("playbackMode", html)
+        with self.request("/app.js") as response:
+            script = response.read().decode()
+            self.assertNotIn("playTrack", script)
+            self.assertNotIn("/api/audio", script)
 
     def test_csrf_and_confirmation_flow(self):
         with self.assertRaises(HTTPError) as caught:

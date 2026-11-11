@@ -6,7 +6,6 @@ import hmac
 import io
 import json
 import math
-import mimetypes
 import os
 from pathlib import Path
 import queue
@@ -310,7 +309,7 @@ class Finder:
         with self.lock:
             if self.progress["phase"] == "scanning":
                 self.cancel.set()
-                self.progress.update(phase="cancelling", message="Cancelling metadata reads…")
+                self.progress.update(phase="cancelling", message="Cancelling metadata reads...")
 
     def deletion_preview(self, ids):
         with self.lock:
@@ -407,7 +406,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
-        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; media-src 'self'; frame-ancestors 'none'; base-uri 'none'")
+        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; media-src 'none'; frame-ancestors 'none'; base-uri 'none'")
         for name, value in (headers or {}).items():
             self.send_header(name, value)
         self.end_headers()
@@ -445,8 +444,6 @@ class Handler(BaseHTTPRequestHandler):
                 with self.app.lock:
                     errors = list(self.app.errors)
                 return self.send(200, errors, headers={"Content-Disposition": 'attachment; filename="audio-errors.json"'})
-            if parsed.path == "/api/audio":
-                return self.audio(get("id"), get("compatible") == "1")
             assets = {"/": ("index.html", "text/html; charset=utf-8"), "/app.js": ("app.js", "application/javascript"), "/style.css": ("style.css", "text/css")}
             if parsed.path in assets:
                 name, mime = assets[parsed.path]
@@ -489,78 +486,6 @@ class Handler(BaseHTTPRequestHandler):
             self.send(200, result)
         except (ValueError, TypeError, OSError) as error:
             self.send(400, {"error": str(error)})
-
-    def audio(self, ident, compatible=False):
-        with self.app.lock:
-            entry = self.app.results.get(ident)
-        if not entry:
-            return self.send(404, {"error": "Result no longer exists"})
-        path = self.app.path(entry["path"])
-        if compatible:
-            if signature(path.stat()) != tuple(entry["signature"]):
-                raise ValueError("File changed since scanning")
-            process = subprocess.Popen([os.getenv("FFMPEG", "ffmpeg"), "-v", "error", "-nostdin",
-                "-protocol_whitelist", "file,pipe", "-i", str(path), "-map", "0:a:0", "-vn",
-                "-threads", "1", "-c:a", "libmp3lame", "-b:a", "192k", "-f", "mp3", "pipe:1"],
-                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-            try:
-                self.send_response(200)
-                self.send_header("Content-Type", "audio/mpeg")
-                self.send_header("Cache-Control", "no-store")
-                self.send_header("Connection", "close")
-                self.end_headers()
-                while True:
-                    chunk = process.stdout.read(16384)
-                    if not chunk:
-                        break
-                    self.wfile.write(chunk)
-            finally:
-                if process.poll() is None:
-                    process.kill()
-                process.wait()
-                process.stdout.close()
-            return
-        with path.open("rb") as audio:
-            info = os.fstat(audio.fileno())
-            if signature(info) != tuple(entry["signature"]):
-                raise ValueError("File changed since scanning")
-            start, end = 0, info.st_size - 1
-            requested = self.headers.get("Range")
-            if requested:
-                try:
-                    unit, span = requested.split("=", 1)
-                    left, right = span.split("-", 1)
-                    if unit != "bytes" or "," in span:
-                        raise ValueError()
-                    if left:
-                        start = int(left)
-                        end = min(end, int(right)) if right else end
-                    else:
-                        suffix = int(right)
-                        if suffix <= 0:
-                            raise ValueError()
-                        start = max(0, info.st_size - suffix)
-                    if start < 0 or start > end:
-                        raise ValueError()
-                except ValueError:
-                    return self.send(416, b"", headers={"Content-Range": "bytes */%s" % info.st_size})
-            mime = {"m4a": "audio/mp4", "flac": "audio/flac", "mp3": "audio/mpeg", "wav": "audio/wav", "opus": "audio/ogg", "aac": "audio/aac"}.get(path.suffix[1:].lower(), mimetypes.guess_type(path.name)[0] or "application/octet-stream")
-            self.send_response(206 if requested else 200)
-            self.send_header("Content-Type", mime)
-            self.send_header("Accept-Ranges", "bytes")
-            self.send_header("Content-Length", str(end - start + 1))
-            self.send_header("Cache-Control", "no-store")
-            if requested:
-                self.send_header("Content-Range", "bytes %s-%s/%s" % (start, end, info.st_size))
-            self.end_headers()
-            audio.seek(start)
-            remaining = end - start + 1
-            while remaining > 0:
-                chunk = audio.read(min(65536, remaining))
-                if not chunk:
-                    break
-                self.wfile.write(chunk)
-                remaining -= len(chunk)
 
 
 def main():
