@@ -1,7 +1,7 @@
 services:
   nas-audio-finder:
     build: .
-    image: nas-audio-finder:2.0.0
+    image: nas-audio-finder:2.1.0
     container_name: nas-audio-finder
     ports:
       - "8099:8080"

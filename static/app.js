@@ -12,8 +12,8 @@ function safe(task) { return Promise.resolve().then(task).catch(e=>toast(e.messa
 function query() { return new URLSearchParams({search:$('search').value,sort,reverse:reverse?'1':'0',duplicates:$('duplicatesOnly').checked?'1':'0'}); }
 function formats() { return [...document.querySelectorAll('#formatOptions input:checked')].map(e=>e.value); }
 function updateFormats() { const values=formats(); $('formatSummary').textContent=values.length===1?values[0].toUpperCase():`${values.length} formats selected`; }
-function settings() { const value=Object.fromEntries(fields.map(id=>[id,$(id).value])); for(const id of ['days','minimum','maximum','workers']) value[id]=Number(value[id]); value.formats=formats(); value.deep_check=$('deep_check').checked; return value; }
-function applySettings(value) { for(const id of fields) $(id).value=value[id]??(id==='health_filter'?'any':id==='duplicates'?'off':''); $('deep_check').checked=!!value.deep_check; document.querySelectorAll('#formatOptions input').forEach(e=>e.checked=value.formats?.includes(e.value)); updateFormats(); }
+function settings() { const value=Object.fromEntries(fields.map(id=>[id,$(id).value])); for(const id of ['days','minimum','maximum','workers']) value[id]=Number(value[id]); value.formats=formats(); value.deep_check=$('deep_check').checked; value.authenticity_check=$('authenticity_check').checked; return value; }
+function applySettings(value) { for(const id of fields) $(id).value=value[id]??(id==='health_filter'?'any':id==='duplicates'?'off':''); $('deep_check').checked=!!value.deep_check; $('authenticity_check').checked=!!value.authenticity_check; document.querySelectorAll('#formatOptions input').forEach(e=>e.checked=value.formats?.includes(e.value)); updateFormats(); }
 function updateSelection() {
   $('selectedCount').textContent=`${number(selected.size)} selected`;
   $('delete').disabled=$('quarantineSelected').disabled=!selected.size||!!state?.busy;
@@ -30,16 +30,16 @@ function renderRows() {
     const pathCell=document.createElement('td');
     for(const [text,cls] of [[row.name,'name'],[row.path,'path'],[`${row.artist||'No artist'} · ${row.album||'No album'} · ${row.codec||'?'} · ${Math.round((row.bitrate||0)/1000)} kbps · ${number(row.sample_rate||0)} Hz · ${(row.size/1048576).toFixed(2)} MiB`,'path']]) { const div=document.createElement('div'); div.className=cls; div.textContent=text; pathCell.append(div); }
     tr.append(pathCell,td(row.format,'type-cell'),td(row.duration==null?'Unknown':`${row.duration.toFixed(3)} s`,'duration'),td(new Date(row.modified*1000).toLocaleString(),'modified'));
-    const health=td(row.health||'metadata-ok','health'); health.title=row.health_detail||''; tr.append(health,td(row.duplicate||'—','duplicate-cell')); body.append(tr);
+    const health=td(row.health||'metadata-ok','health'); health.title=row.health_detail||''; const authenticity=td(row.authenticity||'not-scanned'); const evidence=document.createElement('div'); evidence.className='path'; evidence.textContent=row.authenticity_detail||''; authenticity.append(evidence); tr.append(health,authenticity,td(row.duplicate||'—','duplicate-cell')); body.append(tr);
   }
   $('empty').hidden=rows.length>0; $('empty').textContent=state?.progress.phase==='idle'?'Start a scan or load scan history.':'No matches. Check filters, selected formats, and the error log.';
   $('total').textContent=`(${number(total)})`; $('pageInfo').textContent=total?`${number(offset+1)}–${number(Math.min(offset+limit,total))} of ${number(total)}`:'0 results'; $('prevPage').disabled=offset===0; $('nextPage').disabled=offset+limit>=total; updateSelection();
 }
 async function loadRows() { const request=++requestNumber, params=query();params.set('offset',offset);params.set('limit',limit);const value=await api(`/api/results?${params}`);if(request!==requestNumber)return;rows=value.rows;total=value.total;if(offset>=total&&offset>0){offset=Math.max(0,Math.floor((total-1)/limit)*limit);return loadRows();}renderRows(); }
 function showState() {
-  const p=state.progress; $('phase').textContent=`v${state.version||'2.0.0'} · ${p.phase}`; for(const key of ['files','recent','read','cached','matches']) $(key).textContent=number(p[key]); $('root').textContent=state.root; $('message').textContent=p.message;
+  const p=state.progress; $('phase').textContent=`v${state.version||'2.1.0'} · ${p.phase}`; for(const key of ['files','recent','read','cached','matches']) $(key).textContent=number(p[key]); $('root').textContent=state.root; $('message').textContent=p.message;
   $('timing').textContent=`${p.elapsed.toFixed(1)}s elapsed · ${number(p.folders)} folders · Listing ${p.listing_seconds.toFixed(1)}s · Analysis ${p.duration_seconds.toFixed(1)} worker-s`;
-  $('scan').disabled=!!state.busy; $('cancel').disabled=!['scanning','duplicates'].includes(p.phase); for(const id of [...fields,'deep_check','loadPreset']) $(id).disabled=!!state.busy;
+  $('scan').disabled=!!state.busy; $('cancel').disabled=!['scanning','duplicates'].includes(p.phase); for(const id of [...fields,'deep_check','authenticity_check','loadPreset']) $(id).disabled=!!state.busy;
   document.querySelectorAll('#formatOptions input, #allFormats, #noFormats').forEach(e=>e.disabled=!!state.busy);
   $('errorSummary').textContent=`Errors · ${number(p.errors)}${p.delete_failed?` (${p.delete_failed} file action failures)`:''}`; $('errorLog').textContent=state.errors.map(e=>`${e.path}\n  ${e.error}`).join('\n\n')||'No errors.';
   if(['Deletion complete','quarantine complete','restore complete','purge complete'].includes(p.message)) $('message').textContent=`${p.message}: ${p.deleted} succeeded, ${p.delete_failed} failed.`;

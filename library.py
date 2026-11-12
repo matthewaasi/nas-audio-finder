@@ -14,9 +14,11 @@ import sys
 import threading
 import time
 
+from authenticity import analyze, ANALYSIS_VERSION
+
 from app import Finder, Handler, Cancelled, signature
 
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 
 
 def command(args, cancel, timeout=60):
@@ -206,6 +208,7 @@ class LibraryFinder(Finder):
                   "album": str(settings.get("album", "")).strip()[:300],
                   "codec": str(settings.get("codec", "")).strip().lower()[:100],
                   "deep_check": bool(settings.get("deep_check", False)),
+                  "authenticity_check": bool(settings.get("authenticity_check", False)),
                   "duplicates": settings.get("duplicates", "off"), "health_filter": settings.get("health_filter", "any")}
         if result["duplicates"] not in ("off", "exact", "acoustic", "both") or result["health_filter"] not in ("any", "issues", "healthy"):
             raise ValueError("Invalid health or duplicate mode")
@@ -243,7 +246,7 @@ class LibraryFinder(Finder):
             "format": Path(relative).suffix.lstrip(".").upper(), "modified": original[1] / 1e9,
             "size": original[0], "signature": original, "duplicate": "", "duration": None,
             "health": "unreadable", "health_detail": "", "bitrate": 0, "sample_rate": 0,
-            "codec": "", "artist": "", "album": "", "fingerprint": [], "sha256": ""}
+            "codec": "", "artist": "", "album": "", "fingerprint": [], "sha256": "", "authenticity": "not-scanned", "authenticity_detail": ""}
         try:
             path = self.path(relative)
             with self.db_lock:
@@ -280,6 +283,19 @@ class LibraryFinder(Finder):
                         entry["sha256"] = info.get("sha256") or file_hash(path, self.cancel)
                     if mode in ("acoustic", "both") and entry["duration"]:
                         entry["fingerprint"] = info.get("fingerprint") or self.fingerprint_reader(path, self.cancel)
+                if settings.get("authenticity_check") and self.matches(entry, settings):
+                    analysis = info.get("authenticity_analysis")
+                    if not analysis or analysis.get("version") != ANALYSIS_VERSION:
+                        try:
+                            analysis = analyze(path, entry, self.cancel, command)
+                        except Cancelled:
+                            raise
+                        except Exception as error:
+                            analysis = {"status": "analysis-error", "detail": str(error)}
+                    entry.update(authenticity=analysis["status"], authenticity_detail=analysis["detail"])
+                    # Retry failures on the next scan rather than caching them.
+                    if analysis["status"] != "analysis-error":
+                        info["authenticity_analysis"] = analysis
                 if signature(path.stat()) != tuple(original):
                     raise ValueError("File changed during analysis; scan again")
                 # Health status depends on this run; only raw metadata and stable expensive results are cached.

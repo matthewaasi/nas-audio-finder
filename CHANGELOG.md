@@ -1,5 +1,33 @@
 # Changelog
 
+## [2.1.0] — 2026-11-12
+
+### Added
+- Optional **Check lossless authenticity** scan for matching audio files.
+- Recognized lossy-codec detection independent of the filename extension.
+- Sampled spectral screening for suspected lossy-to-lossless transcodes and possible upsampling.
+- A sortable Authenticity column with evidence, plus status and evidence in CSV exports.
+- Versioned analysis caching, saved preset/schedule support, persistent scan results, and cancellation.
+- Tests for spectral cutoffs, silence, tones, broadband audio, opposite channel phase,
+  consensus, cancellation, cache invalidation, decoder retry, and real MP3-to-FLAC conversion.
+- GitHub Actions release build: tests, Linux amd64 Docker image archive, Unraid template,
+  source ZIP, SHA256 checksums, and build provenance.
+
+### Behavior and limitations
+- Disabled by default; no audio files are modified by authenticity scans.
+- Decodes three 4-second excerpts near the beginning, middle, and end of matching lossless files.
+- Reports lossy codec, suspected lossy source, possible upsampling, inconclusive,
+  analysis error, or not scanned. Successful screening never certifies source provenance.
+- Recording bandwidth and mastering may cause false positives; high-quality lossy
+  encodes and defects outside the excerpts may be missed. Bit-depth authenticity is not tested.
+- Existing v2.0.0 settings, cache, scan history, and quarantine data remain compatible.
+
+### Validation
+- 36 tests passed locally, including real FFmpeg/FFprobe fixtures and HTTP/API tests.
+- JavaScript syntax validation passed.
+- Docker image build and smoke checks run in the release workflow; Unraid-specific
+  behavior and large-library performance still require target-system validation.
+
 ## [2.0.0] — 2026-11-11
 
 ### Added
@@ -82,3 +110,5 @@
 [1.0.0]: https://github.com/matthewaasi/nas-audio-finder/releases/tag/v1.0.0
 
 [2.0.0]: https://github.com/matthewaasi/nas-audio-finder/releases/tag/v2.0.0
+
+[2.1.0]: https://github.com/matthewaasi/nas-audio-finder/releases/tag/v2.1.0

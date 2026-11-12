@@ -22,17 +22,26 @@ adjustable readers, cancellation, sorting, pagination, CSV export, and confirmed
 permanent deletion remain available. Supported extensions: M4A, MP3, FLAC, WAV,
 AAC, OGG, Opus, AIFF/AIF, WMA, and APE. Default filter: seven days, 25–35 seconds.
 
+## v2.1.0: lossless authenticity screening
+
+The optional **Check lossless authenticity** scan flags recognized lossy codecs,
+suspected lossy-to-lossless transcodes, and possible upsampling. Results include
+evidence in the web UI and CSV, with caching, presets, and scan-history support.
+This is heuristic screening and cannot prove the original source was lossless.
+See [the operations guide](docs/OPERATIONS.md#lossless-authenticity-screening).
+Download the v2.1.0 release assets below, or build from source. Existing v2.0.0 images do not include this feature.
+
 ## Download and install on Unraid
 
-[Download v2.0.0](https://github.com/matthewaasi/nas-audio-finder/releases/tag/v2.0.0)
-and get **`nas-audio-finder-v2.0.0-amd64.tar`** plus **`unraid-template.xml`**.
+[Download v2.1.0](https://github.com/matthewaasi/nas-audio-finder/releases/tag/v2.1.0)
+and get **`nas-audio-finder-v2.1.0-amd64.tar`** plus **`unraid-template.xml`**.
 The prebuilt image targets Linux x86-64. No local image build is required.
 
 1. Copy both files to your Unraid appdata share.
 2. In the Unraid terminal:
 
    ```sh
-   docker load -i /mnt/user/appdata/nas-audio-finder-v2.0.0-amd64.tar
+   docker load -i /mnt/user/appdata/nas-audio-finder-v2.1.0-amd64.tar
    mkdir -p /boot/config/plugins/dockerMan/templates-user
    cp /mnt/user/appdata/unraid-template.xml /boot/config/plugins/dockerMan/templates-user/my-nas-audio-finder.xml
    ```
@@ -41,7 +50,7 @@ The prebuilt image targets Linux x86-64. No local image build is required.
 
    | Setting | Host example | Container |
    | --- | --- | --- |
-   | Repository | `nas-audio-finder:2.0.0` | Locally loaded image |
+   | Repository | `nas-audio-finder:2.1.0` | Locally loaded image |
    | Web port | `8099` | `8080/TCP` |
    | Music library | `/mnt/user/media/Music` — change to your actual local folder | `/music`, read/write for file actions |
    | Appdata | `/mnt/user/appdata/nas-audio-finder` | `/config`, read/write |
@@ -52,10 +61,10 @@ The prebuilt image targets Linux x86-64. No local image build is required.
 Use local Unraid folders, not an SMB mount back to the NAS. The images are
 release assets, not Docker Hub/GHCR images; do not request a registry pull.
 
-### Upgrade from v1.x
+### Upgrade from v1.x or v2.0.0
 
 Stop the container and back up its `/config` directory. Load the new archive,
-set the existing template's Repository to `nas-audio-finder:2.0.0`, and recreate
+set the existing template's Repository to `nas-audio-finder:2.1.0`, and recreate
 the container with the same music/appdata mappings. A restart alone does not
 replace the image. SQLite tables are added without removing the v1 duration
 cache; the first v2 scan rereads metadata to populate richer fields. Library
@@ -97,6 +106,7 @@ quarantine management, health statuses, persistence, permissions, and tuning.
 
 | Release | Description |
 | --- | --- |
+| [v2.1.0](https://github.com/matthewaasi/nas-audio-finder/releases/tag/v2.1.0) | Lossless authenticity screening, evidence and cached results |
 | [v2.0.0](https://github.com/matthewaasi/nas-audio-finder/releases/tag/v2.0.0) | Library management, quarantine, schedules, health checks, richer filters, duplicates |
 | [v1.1.0](https://github.com/matthewaasi/nas-audio-finder/releases/tag/v1.1.0) | Original metadata-only version |
 | [v1.0.0](https://github.com/matthewaasi/nas-audio-finder/releases/tag/v1.0.0) | Original version with browser playback |

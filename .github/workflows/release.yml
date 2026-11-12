@@ -1,0 +1,67 @@
+name: Build and publish release
+on:
+  push:
+    branches: [main]
+    paths: [RELEASE-NOTES.md]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Determine release version
+        run: |
+          version=$(python3 -c 'from library import VERSION; print(VERSION)')
+          test "$version" = '2.1.0'
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "TAG=v$version" >> "$GITHUB_ENV"
+      - name: Install audio test tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Run tests and JavaScript syntax check
+        run: |
+          python3 -m unittest discover -s tests -v
+          node --check static/app.js
+      - name: Build Linux amd64 image
+        run: docker build --platform linux/amd64 -t "nas-audio-finder:$VERSION" .
+      - name: Smoke test built image
+        run: |
+          mkdir -p "$RUNNER_TEMP/smoke/music" "$RUNNER_TEMP/smoke/config"
+          ffmpeg -v error -f lavfi -i 'anoisesrc=color=white:amplitude=0.3:sample_rate=44100:duration=16:seed=42' "$RUNNER_TEMP/smoke/music/original.flac"
+          ffmpeg -v error -i "$RUNNER_TEMP/smoke/music/original.flac" -c:a libmp3lame -b:a 128k "$RUNNER_TEMP/smoke/music/lossy.mp3"
+          ffmpeg -v error -i "$RUNNER_TEMP/smoke/music/lossy.mp3" "$RUNNER_TEMP/smoke/music/transcoded.flac"
+          docker run -d --name release-smoke -p 127.0.0.1:8099:8080 -v "$RUNNER_TEMP/smoke/music:/music:rw" -v "$RUNNER_TEMP/smoke/config:/config:rw" "nas-audio-finder:$VERSION"
+          python3 scripts/release_smoke.py
+      - name: Container logs and cleanup
+        if: always()
+        run: |
+          docker logs release-smoke 2>/dev/null || true
+          docker rm -f release-smoke 2>/dev/null || true
+      - name: Package release assets
+        run: |
+          mkdir dist
+          docker save "nas-audio-finder:$VERSION" -o "dist/nas-audio-finder-$TAG-amd64.tar"
+          cp unraid-template.xml dist/
+          git archive --format=zip --prefix=nas-audio-finder/ -o "dist/nas-audio-finder-$TAG-source.zip" HEAD
+          docker image inspect "nas-audio-finder:$VERSION" > dist/image-inspect.json
+          python3 - <<'PY'
+          import json, os, pathlib
+          image=json.loads(pathlib.Path('dist/image-inspect.json').read_text())[0]
+          provenance=dict(version=os.environ['VERSION'], commit=os.environ['GITHUB_SHA'],
+              platform='linux/amd64', image_id=image['Id'], image_tag='nas-audio-finder:'+os.environ['VERSION'],
+              workflow_run='https://github.com/'+os.environ['GITHUB_REPOSITORY']+'/actions/runs/'+os.environ['GITHUB_RUN_ID'])
+          pathlib.Path('dist/image-provenance.json').write_text(json.dumps(provenance,indent=2)+'\n')
+          PY
+          (cd dist && sha256sum *.tar *.xml *.zip *.json > SHA256SUMS)
+      - name: Publish release with changelog and assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "v$VERSION — Lossless authenticity screening" --notes-file RELEASE-NOTES.md --latest
