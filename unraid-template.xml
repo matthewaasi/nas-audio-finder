@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>nas-audio-finder</Name>
-  <Repository>nas-audio-finder:2.1.0</Repository>
+  <Repository>nas-audio-finder:2.2.0</Repository>
   <Registry></Registry>
   <Network>bridge</Network>
   <Privileged>false</Privileged>
   <Support></Support>
   <Project></Project>
-  <Overview>Local audio metadata search with quarantine/restore, saved presets, persistent results and history, daily schedules, health checks, rich metadata filters, and exact/acoustic duplicate candidates. Includes optional lossless authenticity screening with evidence. Load the release Docker archive before applying this template. No browser audio playback.</Overview>
+  <Overview>Local audio metadata search with quarantine/restore, saved presets, persistent results and history, daily schedules, health checks, rich metadata filters, and exact/acoustic duplicate candidates. Includes optional lossless authenticity screening with evidence and same-folder context for isolated warnings. Load the release Docker archive before applying this template. No browser audio playback.</Overview>
   <Category>MediaApp:Music Tools:</Category>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
   <Icon></Icon>

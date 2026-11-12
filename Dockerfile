@@ -2,7 +2,7 @@ FROM python:3.12-slim-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PORT=8080 MEDIA_ROOT=/music CONFIG_ROOT=/config PUID=99 PGID=100
-LABEL org.opencontainers.image.version="2.1.0"
+LABEL org.opencontainers.image.version="2.2.0"
 WORKDIR /app
 COPY app.py /app/app.py
 COPY library.py /app/library.py

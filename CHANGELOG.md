@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.2.0] — 2026-11-12
+
+### Added
+- Same-folder peer counts beside suspected lossy-source and possible-upsampling warnings.
+- False-positive guidance when other matching tracks show no suspicious cutoff and
+  no other matching files are flagged; mixed evidence guidance when other files are flagged.
+- Highlighted context in the web UI and a separate CSV context column, persisted in scan history.
+- Tests for immediate-folder scope, excluded/unsupported/insufficient peers, mixed flags,
+  silence, cancellation/errors, cached rescans, history, and CSV export.
+
+### Changed
+- Qualifying peers need enough active broadband audio in at least two sampled excerpts
+  and no detected cutoff. Their status remains inconclusive, never verified lossless.
+- Context is computed only after an error-free completed scan, from that scan's matching
+  results. It is never cached as an intrinsic file property or used to clear warnings.
+- Analysis cache version bumped for richer evidence; existing files are reanalyzed once
+  when authenticity scanning is enabled. Old scan history and quarantine data are preserved.
+
+### Validation and limitations
+- 43 local tests passed with real FFmpeg/FFprobe fixtures, HTTP/API and CSV checks.
+- Release CI tests and smoke scans cover mixed and isolated warnings in the built Linux image.
+- Folder membership is context, not proof of a shared source or an accuracy estimate.
+  Filters may exclude other album tracks; Unraid-specific throughput remains unverified.
+
 ## [2.1.0] — 2026-11-12
 
 ### Added
@@ -112,3 +136,5 @@
 [2.0.0]: https://github.com/matthewaasi/nas-audio-finder/releases/tag/v2.0.0
 
 [2.1.0]: https://github.com/matthewaasi/nas-audio-finder/releases/tag/v2.1.0
+
+[2.2.0]: https://github.com/matthewaasi/nas-audio-finder/releases/tag/v2.2.0

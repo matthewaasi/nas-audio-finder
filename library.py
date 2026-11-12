@@ -14,11 +14,11 @@ import sys
 import threading
 import time
 
-from authenticity import analyze, ANALYSIS_VERSION
+from authenticity import analyze, ANALYSIS_VERSION, folder_context
 
 from app import Finder, Handler, Cancelled, signature
 
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 
 
 def command(args, cancel, timeout=60):
@@ -292,7 +292,8 @@ class LibraryFinder(Finder):
                             raise
                         except Exception as error:
                             analysis = {"status": "analysis-error", "detail": str(error)}
-                    entry.update(authenticity=analysis["status"], authenticity_detail=analysis["detail"])
+                    entry.update(authenticity=analysis["status"], authenticity_detail=analysis["detail"],
+                        authenticity_analysis=analysis)
                     # Retry failures on the next scan rather than caching them.
                     if analysis["status"] != "analysis-error":
                         info["authenticity_analysis"] = analysis
@@ -410,6 +411,13 @@ class LibraryFinder(Finder):
                 self.group_duplicates()
                 with self.lock:
                     self.progress.update(phase="cancelled" if self.cancel.is_set() else "complete", message="Scan complete; duplicate candidates require review")
+            if (self.settings.get("authenticity_check") and not self.cancel.is_set()
+                    and self.progress["phase"] != "failed" and not self.progress["errors"]):
+                with self.lock:
+                    rows = list(self.results.values())
+                for original, entry in zip(rows, folder_context(rows)):
+                    if entry != original:
+                        self.store_result(entry)
             with self.lock:
                 self.progress["elapsed"] = time.monotonic() - self.started
             self.checkpoint()

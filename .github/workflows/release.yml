@@ -18,7 +18,7 @@ jobs:
       - name: Determine release version
         run: |
           version=$(python3 -c 'from library import VERSION; print(VERSION)')
-          test "$version" = '2.1.0'
+          test "$version" = '2.2.0'
           echo "VERSION=$version" >> "$GITHUB_ENV"
           echo "TAG=v$version" >> "$GITHUB_ENV"
       - name: Install audio test tools
@@ -64,4 +64,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "v$VERSION — Lossless authenticity screening" --notes-file RELEASE-NOTES.md --latest
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "v$VERSION — Folder context for authenticity warnings" --notes-file RELEASE-NOTES.md --latest

@@ -284,7 +284,7 @@ class LibraryHTTPTests(unittest.TestCase):
             with urlopen(req, timeout=5) as response:
                 return json.load(response)
         try:
-            self.assertEqual(request('/api/state')['version'], '2.1.0')
+            self.assertEqual(request('/api/state')['version'], '2.2.0')
             self.assertEqual(len(request('/api/history')['history']), 1)
             request('/api/preset',dict(name='HTTP',settings=self.settings()))
             self.assertIn('HTTP',request('/api/presets')['presets'])

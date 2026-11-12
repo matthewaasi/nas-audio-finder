@@ -12,7 +12,7 @@ import unittest
 from unittest.mock import patch
 
 from app import Cancelled
-from authenticity import analyze, cutoff
+from authenticity import analyze, cutoff, ANALYSIS_VERSION
 from library import command, metadata
 import test_library
 
@@ -78,7 +78,7 @@ class AuthenticityCacheTests(unittest.TestCase):
     wait = test_library.LibraryTests.wait
     def test_authenticity_opt_in_cache_invalidation_and_retry(self):
         path = self.file('a.flac')
-        answer = dict(version=1,status='suspected-lossy-source',detail='Test evidence')
+        answer = dict(version=ANALYSIS_VERSION,status='suspected-lossy-source',detail='Test evidence')
         with patch('library.analyze',return_value=answer) as reader:
             self.scan()
             reader.assert_not_called()
@@ -116,7 +116,9 @@ class RealAudioTests(unittest.TestCase):
             run('-f','lavfi','-i','anoisesrc=color=white:amplitude=0.3:sample_rate=44100:duration=16:seed=42',original)
             run('-i',original,'-c:a','libmp3lame','-b:a','128k',mp3)
             run('-i',mp3,transcode)
-            self.assertEqual(analyze(original,metadata(original,cancel),cancel,command)['status'],'inconclusive')
+            original_result = analyze(original,metadata(original,cancel),cancel,command)
+            self.assertEqual(original_result['status'],'inconclusive')
+            self.assertEqual(original_result['screening_outcome'],'no-suspicious-cutoff')
             self.assertEqual(analyze(mp3,metadata(mp3,cancel),cancel,command)['status'],'lossy-codec')
             result = analyze(transcode,metadata(transcode,cancel),cancel,command)
             self.assertEqual(result['status'],'suspected-lossy-source',result)

@@ -147,5 +147,34 @@ file invalidates the cache; analysis errors are retried. Like the metadata cache
 a replacement preserving both size and timestamp can evade invalidation. The
 scan adds CPU and disk work, supports cancellation, and never acts on files.
 
-Build the updated source with `docker build -t nas-audio-finder:2.1.0 .`.
-The published v2.0.0 image archives do not contain this feature. Download v2.1.0 for a prebuilt image; existing v2.0.0 assets remain unchanged.
+Build the updated source with `docker build -t nas-audio-finder:2.2.0 .`.
+The published v2.0.0 image archives do not contain this feature. Download v2.2.0 for a prebuilt image; existing v2.0.0 assets remain unchanged.
+
+
+### Folder context (v2.2.0)
+
+After a completed, error-free authenticity scan, suspected-lossy-source and
+possible-upsampling warnings show how many other matching files directly in the
+same folder completed spectral screening without a suspicious cutoff. A peer
+must have at least two excerpts with sufficient active broadband material and
+no detected cutoff in any excerpt, and no audio-health issue. Silence, tones,
+unsupported codecs, short files, errors, and unscanned files do not count as
+reassuring evidence. These peer results remain **inconclusive**, not verified
+lossless. The underlying flagged status is never cleared or downgraded.
+
+If no other matching file has an authenticity flag, the note explains that a
+false positive is more plausible, especially if the files share a source. If
+other files are flagged (including known lossy codecs), the note instead calls
+out mixed folder evidence. This is qualitative context, not an accuracy estimate.
+
+Context compares only matching results in this scan, using the immediate folder
+rather than album tags or nested folders. Date, duration, format and metadata
+filters may exclude other album tracks. Use a broad scan to assess an album.
+Cancelled, failed, or error-containing scans do not receive reassuring context.
+The note appears alongside evidence in the web UI and in a separate
+**Authenticity folder context** CSV column. It is saved with scan history but
+recomputed for each new scan, never cached as a file property.
+
+v2.1.0 scan history remains unchanged. Rescan after upgrading to get folder
+context; the analysis cache version changes so eligible evidence is recomputed
+once for existing files. No database reset or changes to audio files are needed.

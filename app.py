@@ -441,13 +441,13 @@ class Handler(BaseHTTPRequestHandler):
                 if parsed.path == "/api/export":
                     output = io.StringIO(newline="")
                     writer = csv.writer(output)
-                    writer.writerow(["Path relative to /music", "Modified UTC", "Duration seconds", "Bytes", "Format", "Codec", "Bitrate bps", "Sample rate Hz", "Artist", "Album", "Health", "Duplicate group", "Authenticity", "Authenticity evidence"])
+                    writer.writerow(["Path relative to /music", "Modified UTC", "Duration seconds", "Bytes", "Format", "Codec", "Bitrate bps", "Sample rate Hz", "Artist", "Album", "Health", "Duplicate group", "Authenticity", "Authenticity evidence", "Authenticity folder context"])
                     for r in rows:
                         # Prevent spreadsheet formula evaluation from file names.
                         path = r["path"]
                         if path[:1] in ("=", "+", "-", "@", "\t", "\r"):
                             path = "'" + path
-                        values=[path, time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(r["modified"])), r["duration"], r["size"], r["format"], r.get("codec", ""), r.get("bitrate", ""), r.get("sample_rate", ""), r.get("artist", ""), r.get("album", ""), r.get("health", ""), r.get("duplicate", ""), r.get("authenticity", "not-scanned"), r.get("authenticity_detail", "")]
+                        values=[path, time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(r["modified"])), r["duration"], r["size"], r["format"], r.get("codec", ""), r.get("bitrate", ""), r.get("sample_rate", ""), r.get("artist", ""), r.get("album", ""), r.get("health", ""), r.get("duplicate", ""), r.get("authenticity", "not-scanned"), r.get("authenticity_detail", ""), r.get("authenticity_folder_detail", "")]
                         writer.writerow([("'"+v if isinstance(v,str) and v[:1] in ("=","+","-","@","\t","\r") else v) for v in values])
                     return self.send(200, output.getvalue().encode("utf-8-sig"), "text/csv", {"Content-Disposition": 'attachment; filename="audio-results.csv"'})
                 offset = max(0, int(get("offset", "0")))
