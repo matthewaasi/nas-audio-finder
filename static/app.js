@@ -37,7 +37,7 @@ function renderRows() {
 }
 async function loadRows() { const request=++requestNumber, params=query();params.set('offset',offset);params.set('limit',limit);const value=await api(`/api/results?${params}`);if(request!==requestNumber)return;rows=value.rows;total=value.total;if(offset>=total&&offset>0){offset=Math.max(0,Math.floor((total-1)/limit)*limit);return loadRows();}renderRows(); }
 function showState() {
-  const p=state.progress; $('phase').textContent=`v${state.version||'2.2.0'} · ${p.phase}`; for(const key of ['files','recent','read','cached','matches']) $(key).textContent=number(p[key]); $('root').textContent=state.root; $('message').textContent=p.message;
+  const p=state.progress; $('phase').textContent=`v${state.version||'2.3.0'} · ${p.phase}`; for(const key of ['files','recent','read','cached','matches']) $(key).textContent=number(p[key]); $('root').textContent=state.root; $('message').textContent=p.message;
   $('timing').textContent=`${p.elapsed.toFixed(1)}s elapsed · ${number(p.folders)} folders · Listing ${p.listing_seconds.toFixed(1)}s · Analysis ${p.duration_seconds.toFixed(1)} worker-s`;
   $('scan').disabled=!!state.busy; $('cancel').disabled=!['scanning','duplicates'].includes(p.phase); for(const id of [...fields,'deep_check','authenticity_check','loadPreset']) $(id).disabled=!!state.busy;
   document.querySelectorAll('#formatOptions input, #allFormats, #noFormats').forEach(e=>e.disabled=!!state.busy);
@@ -56,7 +56,7 @@ async function poll() {
     }
     if(scanId!==state.scan_id){selected.clear();offset=0;scanId=state.scan_id;applySettings(state.settings);}
     if(lastPhase!==state.progress.phase&&!state.busy){selected.clear();await Promise.all([loadHistory(),loadQuarantine()]);}
-    lastPhase=state.progress.phase;showState();await loadRows();
+    lastPhase=state.progress.phase;showState();await loadRows();await loadExtraction();
     if(++refreshNumber%10===0)await Promise.all([loadHistory(),loadQuarantine()]);
   } catch(error) { $('phase').textContent='Disconnected';$('message').textContent=error.message; }
   finally { polling=false; }
@@ -99,4 +99,38 @@ for(const [id,kind] of [['delete','delete'],['quarantineSelected','quarantine'],
 $('ack').addEventListener('change',()=>$('confirmDelete').disabled=!$('ack').checked);$('dismissDelete').addEventListener('click',()=>$('deleteDialog').close());
 $('confirmDelete').addEventListener('click',()=>safe(async()=>{if(!$('ack').checked)return;$('confirmDelete').disabled=true;try{await api(action==='delete'?'/api/delete':'/api/action',{confirmation});$('deleteDialog').close();selected.clear();quarantineSelected.clear();await poll();}finally{$('confirmDelete').disabled=false;}}));
 $('export').addEventListener('click',()=>{window.location.href=`/api/export?${query()}`;});document.addEventListener('click',e=>{if(!$('formatPicker').contains(e.target))$('formatPicker').open=false;});
+let extractionState=null, extractionSelected=new Set();
+for(const name of ['library','extraction']) $(`${name}Tab`).addEventListener('click',()=>{
+  for(const panel of ['library','extraction']) {
+    $(`${panel}Panel`).hidden=panel!==name;
+    if(panel===name)$(`${panel}Tab`).setAttribute('aria-current','page');else $(`${panel}Tab`).removeAttribute('aria-current');
+  }
+});
+function extractionSelection() { $('extractionRun').disabled=!!state?.busy||!extractionSelected.size; }
+async function loadExtraction() {
+  extractionState=await api('/api/extraction');const p=extractionState.progress;
+  const ready=new Set(extractionState.rows.filter(r=>r.status==='ready').map(r=>r.id));
+  extractionSelected=new Set([...extractionSelected].filter(id=>ready.has(id)));
+  $('extractionScan').disabled=$('extractionFolder').disabled=!!state?.busy;
+  $('extractionCancel').disabled=!extractionState.busy;
+  $('extractionAll').disabled=$('extractionClear').disabled=!!state?.busy;
+  $('extractionStatus').textContent=`${p.phase} · ${p.found} M4A files · ${p.eligible} eligible · ${p.skipped} skipped · ${p.extracted} extracted · ${p.failed} errors${p.error?' · '+p.error:''}`;
+  const body=$('extractionRows');body.replaceChildren();
+  for(const row of extractionState.rows) {
+    const tr=document.createElement('tr'),cell=document.createElement('td'),check=document.createElement('input');
+    check.type='checkbox';check.checked=extractionSelected.has(row.id);check.disabled=row.status!=='ready'||!!state?.busy;check.setAttribute('aria-label',`Extract ${row.path}`);
+    check.addEventListener('change',()=>{check.checked?extractionSelected.add(row.id):extractionSelected.delete(row.id);extractionSelection();});
+    cell.append(check);tr.append(cell,td(row.path),td(row.output),td(`${row.status}: ${row.detail}`));body.append(tr);
+  }
+  $('extractionEmpty').hidden=extractionState.rows.length>0;extractionSelection();
+}
+$('extractionForm').addEventListener('submit',event=>{event.preventDefault();safe(async()=>{await api('/api/extraction/scan',{folder:$('extractionFolder').value});extractionSelected.clear();await poll();});});
+$('extractionCancel').addEventListener('click',()=>safe(async()=>{await api('/api/extraction/cancel',{});await poll();}));
+$('extractionAll').addEventListener('click',()=>{extractionSelected=new Set(extractionState.rows.filter(r=>r.status==='ready').map(r=>r.id));safe(loadExtraction);});
+$('extractionClear').addEventListener('click',()=>{extractionSelected.clear();safe(loadExtraction);});
+$('extractionRun').addEventListener('click',()=>safe(async()=>{
+  const result=await api('/api/extraction/preview',{ids:[...extractionSelected]});
+  if(!window.confirm(`Extract ${result.count} FLAC file(s) and permanently delete their M4A originals after verification?\n\n${result.paths.join('\n')}\n\nExisting FLAC files are never overwritten.`))return;
+  await api('/api/extraction/extract',{confirmation:result.confirmation});extractionSelected.clear();await poll();
+}));
 poll();setInterval(poll,1500);

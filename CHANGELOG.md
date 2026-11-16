@@ -1,3 +1,10 @@
+# v2.3.0
+
+- Separate M4A to FLAC tab with independent scan, selection, confirmation, progress and cancellation.
+- Extract a single embedded FLAC stream without re-encoding; fully verify decoded audio before deleting its M4A source.
+- Preserve paths, base names, text metadata, file permissions and modification times; refuse existing targets, changed sources and unsafe paths.
+- AAC/ALAC and multiple audio streams are skipped; extraction never runs on a schedule.
+
 # Changelog
 
 ## [2.2.0] — 2026-11-12

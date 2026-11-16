@@ -14,11 +14,12 @@ import sys
 import threading
 import time
 
+from extraction import Extractor
 from authenticity import analyze, ANALYSIS_VERSION, folder_context
 
 from app import Finder, Handler, Cancelled, signature
 
-VERSION = "2.2.0"
+VERSION = "2.3.0"
 
 
 def command(args, cancel, timeout=60):
@@ -183,6 +184,7 @@ class LibraryFinder(Finder):
         if active:
             self.load_history(active, recovering=True)
         self.reconcile_quarantine()
+        self.extractor = Extractor(self)
         self.scheduler_thread = None
         if scheduler:
             self.scheduler_thread = threading.Thread(target=self.scheduler_loop, daemon=True)
@@ -198,7 +200,7 @@ class LibraryFinder(Finder):
             return json.loads(row[0]) if row else None
 
     def busy(self):
-        return super().busy() or self.progress["phase"] in ("quarantining", "restoring", "purging", "duplicates") or bool(self.thread and self.thread.is_alive())
+        return bool(getattr(self, 'extractor', None) and self.extractor.busy()) or super().busy() or self.progress["phase"] in ("quarantining", "restoring", "purging", "duplicates") or bool(self.thread and self.thread.is_alive())
 
     def exclude(self, path):
         return path == self.quarantine or self.quarantine in path.parents or path == self.config.resolve()
@@ -693,6 +695,7 @@ class LibraryFinder(Finder):
 
     def shutdown(self):
         self.shutdown_event.set()
+        self.extractor.shutdown()
         if self.scheduler_thread:
             self.scheduler_thread.join(5)
         self.stop()
@@ -706,6 +709,8 @@ class LibraryHandler(Handler):
     server_version = "NasAudioFinder/2.0"
 
     def extra_get(self, route, get):
+        if route == "/api/extraction":
+            return self.app.extractor.state()
         if route == "/api/presets":
             return {"presets": self.app.presets()}
         if route == "/api/history":
@@ -714,6 +719,17 @@ class LibraryHandler(Handler):
             return {"rows": self.app.quarantine_rows()}
 
     def extra_post(self, route, data):
+        if route == "/api/extraction/scan":
+            self.app.extractor.start(data.get('folder', ''))
+            return {'ok': True}
+        if route == "/api/extraction/cancel":
+            self.app.extractor.cancel.set()
+            return {'ok': True}
+        if route == "/api/extraction/preview":
+            return self.app.extractor.preview(data.get('ids'))
+        if route == "/api/extraction/extract":
+            self.app.extractor.extract(data.get('confirmation', ''))
+            return {'ok': True}
         if route == "/api/preset":
             return self.app.preset(data)
         if route == "/api/schedule":

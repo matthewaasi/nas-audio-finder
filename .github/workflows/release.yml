@@ -18,7 +18,7 @@ jobs:
       - name: Determine release version
         run: |
           version=$(python3 -c 'from library import VERSION; print(VERSION)')
-          test "$version" = '2.2.0'
+          test "$version" = '2.3.0'
           echo "VERSION=$version" >> "$GITHUB_ENV"
           echo "TAG=v$version" >> "$GITHUB_ENV"
       - name: Install audio test tools
@@ -37,6 +37,7 @@ jobs:
           ffmpeg -v error -f lavfi -i 'anoisesrc=color=white:amplitude=0.3:sample_rate=44100:duration=16:seed=42' "$RUNNER_TEMP/smoke/music/original.flac"
           ffmpeg -v error -i "$RUNNER_TEMP/smoke/music/original.flac" -c:a libmp3lame -b:a 128k "$RUNNER_TEMP/smoke/music/lossy.mp3"
           ffmpeg -v error -i "$RUNNER_TEMP/smoke/music/lossy.mp3" "$RUNNER_TEMP/smoke/music/transcoded.flac"
+          ffmpeg -v error -i "$RUNNER_TEMP/smoke/music/original.flac" -c:a copy -strict experimental -f mp4 "$RUNNER_TEMP/smoke/music/extract.m4a"
           docker run -d --name release-smoke -p 127.0.0.1:8099:8080 -v "$RUNNER_TEMP/smoke/music:/music:rw" -v "$RUNNER_TEMP/smoke/config:/config:rw" "nas-audio-finder:$VERSION"
           python3 scripts/release_smoke.py
       - name: Container logs and cleanup
@@ -64,4 +65,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "v$VERSION — Folder context for authenticity warnings" --notes-file RELEASE-NOTES.md --latest
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "v$VERSION — FLAC extraction from M4A" --notes-file RELEASE-NOTES.md --latest

@@ -1,3 +1,4 @@
+from pathlib import Path
 import csv
 import io
 import json
@@ -91,7 +92,7 @@ class FolderScanTests(unittest.TestCase):
             try:
                 with urlopen(f'http://127.0.0.1:{server.server_port}/api/export') as response:
                     exported=list(csv.DictReader(io.StringIO(response.read().decode('utf-8-sig'))))
-                flagged=next(r for r in exported if r['Path relative to /music']=='Album/flag.flac')
+                flagged=next(r for r in exported if r['Path relative to /music']==str(Path('Album')/'flag.flac'))
                 self.assertIn('1 of 1 other matching',flagged['Authenticity folder context'])
             finally:
                 server.shutdown();server.server_close();thread.join()

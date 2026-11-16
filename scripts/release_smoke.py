@@ -27,7 +27,7 @@ for attempt in range(60):
         time.sleep(1)
 else:
     raise RuntimeError('Container did not start')
-assert state['version'] == '2.2.0', state
+assert state['version'] == '2.3.0', state
 request('/api/scan', dict(folder='', days=0, minimum=0, maximum=120,
         workers=2, formats=['flac', 'mp3'], authenticity_check=True), state['csrf'])
 for attempt in range(120):
@@ -70,3 +70,34 @@ assert flagged['authenticity'] == 'suspected-lossy-source', flagged
 export = list(csv.DictReader(io.StringIO(request('/api/export'))))
 assert any('false positive is more plausible' in r['Authenticity folder context'] for r in export), export
 print('Folder context, cached rescan scope and CSV smoke checks passed')
+
+# Exercise the independent extraction API against the built container as well.
+request('/api/extraction/scan', {'folder': ''}, state['csrf'])
+for attempt in range(120):
+    extraction = request('/api/extraction')
+    if not extraction['busy']:
+        break
+    time.sleep(1)
+else:
+    raise RuntimeError('Extraction scan did not finish')
+ready = [r for r in extraction['rows'] if r['status'] == 'ready']
+assert len(ready) == 1 and ready[0]['path'] == 'extract.m4a', extraction
+preview = request('/api/extraction/preview', {'ids': [ready[0]['id']]}, state['csrf'])
+request('/api/extraction/extract', {'confirmation': preview['confirmation']}, state['csrf'])
+for attempt in range(120):
+    extraction = request('/api/extraction')
+    if not extraction['busy']:
+        break
+    time.sleep(1)
+else:
+    raise RuntimeError('Extraction did not finish')
+assert extraction['progress']['extracted'] == 1 and extraction['progress']['failed'] == 0, extraction
+assert extraction['rows'][0]['status'] == 'extracted', extraction
+request('/api/extraction/scan', {'folder': ''}, state['csrf'])
+for attempt in range(120):
+    extraction = request('/api/extraction')
+    if not extraction['busy']:
+        break
+    time.sleep(1)
+assert extraction['progress']['found'] == 0, extraction
+print('Independent FLAC extraction, verification and original deletion passed')

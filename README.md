@@ -4,6 +4,21 @@ Self-hosted audio metadata search and library cleanup for **Unraid and Docker**.
 Scan files directly on the NAS, inspect matches in a web GUI, and quarantine
 unwanted files with a restore option. No cloud service and no audio playback.
 
+## v2.3.0: independent M4A to FLAC tab
+
+Open **M4A to FLAC** to recursively find M4A files containing a single FLAC
+stream. Review and select ready files, then confirm extraction. `Track.m4a`
+becomes `Track.flac` in the same directory, without re-encoding. Full decoded
+SHA256 audio verification must succeed before the M4A original is deleted.
+AAC/ALAC, multiple audio streams, symlinks, quarantine, config, changed sources,
+and existing FLAC destinations are skipped or refused. Originals survive failures.
+Text metadata, file mode and modification time are preserved; artwork is not copied.
+The filesystem must support same-directory hard links for exclusive publication.
+Extraction has separate results and cancellation and does not use search filters,
+presets or schedules. Library operations wait while it runs. Rescan after restart;
+extraction results are held in memory and interrupted jobs never resume automatically.
+See [the extraction guide](docs/OPERATIONS.md#m4a-to-flac-extraction).
+
 ## v2.0.0: library management
 
 | Feature | Behavior |
@@ -38,19 +53,19 @@ suspected lossy-to-lossless transcodes, and possible upsampling. Results include
 evidence in the web UI and CSV, with caching, presets, and scan-history support.
 This is heuristic screening and cannot prove the original source was lossless.
 See [the operations guide](docs/OPERATIONS.md#lossless-authenticity-screening).
-Download the v2.2.0 release assets below, or build from source. Existing v2.0.0 images do not include this feature.
+Download the v2.3.0 release assets below, or build from source. Existing v2.0.0 images do not include this feature.
 
 ## Download and install on Unraid
 
-[Download v2.2.0](https://github.com/matthewaasi/nas-audio-finder/releases/tag/v2.2.0)
-and get **`nas-audio-finder-v2.2.0-amd64.tar`** plus **`unraid-template.xml`**.
+[Download v2.3.0](https://github.com/matthewaasi/nas-audio-finder/releases/tag/v2.3.0)
+and get **`nas-audio-finder-v2.3.0-amd64.tar`** plus **`unraid-template.xml`**.
 The prebuilt image targets Linux x86-64. No local image build is required.
 
 1. Copy both files to your Unraid appdata share.
 2. In the Unraid terminal:
 
    ```sh
-   docker load -i /mnt/user/appdata/nas-audio-finder-v2.2.0-amd64.tar
+   docker load -i /mnt/user/appdata/nas-audio-finder-v2.3.0-amd64.tar
    mkdir -p /boot/config/plugins/dockerMan/templates-user
    cp /mnt/user/appdata/unraid-template.xml /boot/config/plugins/dockerMan/templates-user/my-nas-audio-finder.xml
    ```
@@ -59,7 +74,7 @@ The prebuilt image targets Linux x86-64. No local image build is required.
 
    | Setting | Host example | Container |
    | --- | --- | --- |
-   | Repository | `nas-audio-finder:2.2.0` | Locally loaded image |
+   | Repository | `nas-audio-finder:2.3.0` | Locally loaded image |
    | Web port | `8099` | `8080/TCP` |
    | Music library | `/mnt/user/media/Music` — change to your actual local folder | `/music`, read/write for file actions |
    | Appdata | `/mnt/user/appdata/nas-audio-finder` | `/config`, read/write |
@@ -73,7 +88,7 @@ release assets, not Docker Hub/GHCR images; do not request a registry pull.
 ### Upgrade from earlier versions
 
 Stop the container and back up its `/config` directory. Load the new archive,
-set the existing template's Repository to `nas-audio-finder:2.2.0`, and recreate
+set the existing template's Repository to `nas-audio-finder:2.3.0`, and recreate
 the container with the same music/appdata mappings. A restart alone does not
 replace the image. SQLite tables are added without removing the v1 duration
 cache; the first v2 scan rereads metadata to populate richer fields. Library
@@ -124,8 +139,8 @@ quarantine management, health statuses, persistence, permissions, and tuning.
 ## Development and validation
 
 Python's standard library supplies HTTP, SQLite, queues, hashing and persistence.
-FFprobe reads metadata. FFmpeg is included **only for optional decoding and
-acoustic analysis**, not for browser playback. Application source is MIT licensed;
+FFprobe reads metadata. FFmpeg supplies FLAC extraction, verification, optional decoding and
+acoustic analysis, not for browser playback. Application source is MIT licensed;
 bundled tools retain their upstream licenses. See [third-party notices](THIRD_PARTY_NOTICES.md).
 
 ```sh
@@ -134,7 +149,7 @@ node --check static/app.js
 docker build -t nas-audio-finder:dev .
 ```
 
-30 tests completed successfully (29 passed; one Windows symlink test skipped). Tests include real
+48 tests completed successfully (47 passed; one Windows symlink test skipped). Tests include real
 WAV, FLAC, MP3 and fragmented M4A files, full decoding, cross-format acoustic
 matching, cross-volume moves, overwrite/tampering protections, persistence,
 scheduling and API confirmation flows. Browser QA verified a scan and metadata

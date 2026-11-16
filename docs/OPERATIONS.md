@@ -178,3 +178,31 @@ recomputed for each new scan, never cached as a file property.
 v2.1.0 scan history remains unchanged. Rescan after upgrading to get folder
 context; the analysis cache version changes so eligible evidence is recomputed
 once for existing files. No database reset or changes to audio files are needed.
+
+## M4A to FLAC extraction
+
+The separate **M4A to FLAC** tab scans a relative subfolder recursively, with no
+search date, duration or metadata filters. Scanning only reads files. Select ready
+files and review the confirmation before extracting and deleting originals.
+Only M4A files with exactly one FLAC audio stream qualify. AAC and ALAC are not
+transcoded. Multiple audio streams are refused to avoid discarding audio.
+
+The output has the same base filename and location, with a `.flac` extension.
+FFmpeg copies the compressed FLAC stream and text metadata; embedded artwork is
+not copied. The tool fully decodes both files and compares SHA256 PCM hashes,
+then flushes the temporary output and publishes it without overwriting any existing
+path. Source signatures are checked again before deletion. File permissions and
+modification time are preserved. Temporary files are in the source directory;
+allow disk space for both files until verification completes. Same-directory hard
+links must be supported by the music filesystem; unsupported filesystems fail
+safely with the M4A retained. Use local NAS paths as recommended for the library.
+
+Cancellation retains the current original and removes its temporary output; files
+already completed remain extracted. A deletion failure leaves both the verified
+FLAC and original M4A with an error to review. A hard crash may leave a hidden
+`.nas-flac-*.tmp` file or both final files; review those manually. Results are held
+in memory and jobs do not resume on restart. Normal search results/history stay
+unchanged; rescan the library to refresh paths after extraction. Scheduled scans
+wait for extraction to finish and never start extraction themselves. Avoid other
+programs modifying the same folders during file actions; path checks cannot
+eliminate every filesystem race. Permanent removal of M4A originals cannot be undone.
