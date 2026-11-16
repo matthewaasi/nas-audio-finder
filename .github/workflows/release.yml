@@ -38,7 +38,7 @@ jobs:
           ffmpeg -v error -i "$RUNNER_TEMP/smoke/music/original.flac" -c:a libmp3lame -b:a 128k "$RUNNER_TEMP/smoke/music/lossy.mp3"
           ffmpeg -v error -i "$RUNNER_TEMP/smoke/music/lossy.mp3" "$RUNNER_TEMP/smoke/music/transcoded.flac"
           ffmpeg -v error -i "$RUNNER_TEMP/smoke/music/original.flac" -c:a copy -strict experimental -f mp4 "$RUNNER_TEMP/smoke/music/extract.m4a"
-          docker run -d --name release-smoke -p 127.0.0.1:8099:8080 -v "$RUNNER_TEMP/smoke/music:/music:rw" -v "$RUNNER_TEMP/smoke/config:/config:rw" "nas-audio-finder:$VERSION"
+          docker run -d --name release-smoke -e PUID="$(id -u)" -e PGID="$(id -g)" -p 127.0.0.1:8099:8080 -v "$RUNNER_TEMP/smoke/music:/music:rw" -v "$RUNNER_TEMP/smoke/config:/config:rw" "nas-audio-finder:$VERSION"
           python3 scripts/release_smoke.py
       - name: Container logs and cleanup
         if: always()
