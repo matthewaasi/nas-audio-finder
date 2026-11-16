@@ -21,3 +21,6 @@ docker load -i /mnt/user/appdata/nas-audio-finder-v2.3.0-amd64.tar
 Set the container repository to `nas-audio-finder:2.3.0` and recreate it using the
 same `/music` and `/config` mappings. Music must be writable for extraction.
 A restart alone does not replace the image. See README.md and docs/OPERATIONS.md.
+
+Validation includes real FLAC-in-M4A fixtures, failure protection, and a Linux
+container smoke test using a writable library mapping.
