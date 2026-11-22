@@ -19,7 +19,7 @@ from authenticity import analyze, ANALYSIS_VERSION, folder_context
 
 from app import Finder, Handler, Cancelled, signature
 
-VERSION = "2.3.0"
+VERSION = "2.4.0"
 
 
 def command(args, cancel, timeout=60):
@@ -710,7 +710,11 @@ class LibraryHandler(Handler):
 
     def extra_get(self, route, get):
         if route == "/api/extraction":
-            return self.app.extractor.state()
+            offset = max(0, int(get("offset", "0")))
+            limit = max(1, min(500, int(get("limit", "100"))))
+            return self.app.extractor.state(offset, limit)
+        if route == "/api/extraction/selection":
+            return self.app.extractor.selection()
         if route == "/api/presets":
             return {"presets": self.app.presets()}
         if route == "/api/history":
@@ -720,7 +724,7 @@ class LibraryHandler(Handler):
 
     def extra_post(self, route, data):
         if route == "/api/extraction/scan":
-            self.app.extractor.start(data.get('folder', ''))
+            self.app.extractor.start(data.get('folder', ''), data.get('workers', 4))
             return {'ok': True}
         if route == "/api/extraction/cancel":
             self.app.extractor.cancel.set()

@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>nas-audio-finder</Name>
-  <Repository>nas-audio-finder:2.3.0</Repository>
+  <Repository>nas-audio-finder:2.4.0</Repository>
   <Registry></Registry>
   <Network>bridge</Network>
   <Privileged>false</Privileged>

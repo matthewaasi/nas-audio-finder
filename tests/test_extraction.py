@@ -99,6 +99,45 @@ class ExtractionTests(unittest.TestCase):
             self.tool.thread.join(5)
         self.assertEqual(self.tool.progress['phase'], 'cancelled')
 
+    def test_paginated_results_select_all_ready_files(self):
+        for index in range(103):
+            (self.media / f'track-{index}.m4a').write_bytes(b'fake')
+        (self.media / 'skipped.m4a').write_bytes(b'fake')
+        with patch('extraction.flac_stream', side_effect=lambda path, _: path.stem != 'skipped'):
+            self.scan()
+
+        handler = LibraryHandler.__new__(LibraryHandler)
+        handler.server = type('Server', (), {'finder': self.app})()
+        first = handler.extra_get('/api/extraction', lambda key, default: default)
+        second = handler.extra_get('/api/extraction',
+                                   lambda key, default: '100' if key == 'offset' else default)
+        selection = handler.extra_get('/api/extraction/selection', None)
+        rows = first['rows'] + second['rows']
+        self.assertEqual((len(first['rows']), len(second['rows']), first['total']), (100, 4, 104))
+        self.assertEqual(len({row['id'] for row in rows}), 104)
+        self.assertEqual(selection['ids'], [row['id'] for row in rows if row['status'] == 'ready'])
+        self.assertEqual(self.tool.preview(selection['ids'])['count'], 103)
+
+    def test_scan_and_extraction_process_files_in_parallel(self):
+        for name in ('first.m4a', 'second.m4a'):
+            (self.media / name).write_bytes(b'fake')
+        probe_barrier = threading.Barrier(2, timeout=5)
+
+        def probe(path, cancel):
+            probe_barrier.wait()
+            return True
+
+        with patch('extraction.flac_stream', side_effect=probe):
+            self.tool.start('', workers=2)
+            self.tool.thread.join(15)
+        self.assertEqual(self.tool.progress['eligible'], 2)
+
+        extraction_barrier = threading.Barrier(2, timeout=5)
+        with patch.object(self.tool, 'extract_one', side_effect=lambda row: extraction_barrier.wait()):
+            self.extract()
+        self.assertEqual(self.tool.progress['extracted'], 2)
+        self.assertEqual(self.tool.selection()['ids'], [])
+
     def test_api_requires_csrf_and_confirmation(self):
         server = ThreadingHTTPServer(('127.0.0.1', 0), LibraryHandler)
         server.finder = self.app

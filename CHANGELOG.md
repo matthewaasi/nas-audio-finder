@@ -1,3 +1,8 @@
+# v2.4.0
+
+- Scan and extract eligible M4A files with configurable parallel workers.
+- Paginate M4A extraction results and select all eligible files across pages.
+
 # v2.3.0
 
 - Separate M4A to FLAC tab with independent scan, selection, confirmation, progress and cancellation.

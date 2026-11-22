@@ -1,26 +1,15 @@
-# v2.3.0 — M4A to FLAC extraction
+# v2.4.0 — Parallel FLAC extraction and pagination
 
-A new, separate **M4A to FLAC** WebGUI tab finds M4A files containing FLAC audio.
-Select files and confirm to extract `Track.flac` beside `Track.m4a`, verify the
-entire decoded audio, and permanently delete the M4A only after verification.
-No re-encoding. AAC/ALAC and multiple audio streams are skipped. Existing FLAC
-files are never overwritten; changed sources and failed conversions are retained.
-Text metadata and modification times are preserved; embedded artwork is not copied.
-The source filesystem must support hard links. Extraction jobs never run on a
-schedule and do not resume automatically after a restart.
+- Scan and extract multiple files in parallel. The M4A to FLAC tab defaults to four workers and accepts 1 to 32.
+- Browse extraction results 100 files at a time. **Select all ready files** selects eligible files across every page, and individual selections persist while paging.
+- Decoded-audio verification still runs before each original is deleted.
 
-## Unraid installation or upgrade
+## Install or upgrade on Unraid
 
-Download `nas-audio-finder-v2.3.0-amd64.tar` and `unraid-template.xml`.
-Stop the existing container and back up `/config`. Load the image with:
+Download `nas-audio-finder-v2.4.0-amd64.tar` and `unraid-template.xml`. Load the image with:
 
 ```sh
-docker load -i /mnt/user/appdata/nas-audio-finder-v2.3.0-amd64.tar
+docker load -i /mnt/user/appdata/nas-audio-finder-v2.4.0-amd64.tar
 ```
 
-Set the container repository to `nas-audio-finder:2.3.0` and recreate it using the
-same `/music` and `/config` mappings. Music must be writable for extraction.
-A restart alone does not replace the image. See README.md and docs/OPERATIONS.md.
-
-Validation includes real FLAC-in-M4A fixtures, failure protection, and a Linux
-container smoke test using a writable library mapping.
+Set the container repository to `nas-audio-finder:2.4.0` and recreate it with the existing music and config mappings.

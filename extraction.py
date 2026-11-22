@@ -1,4 +1,7 @@
 """Independent, explicitly confirmed FLAC-in-M4A extraction jobs."""
+from contextlib import closing
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from itertools import islice
 import json
 import os
 from pathlib import Path
@@ -38,6 +41,9 @@ class Extractor:
         self.cancel = threading.Event()
         self.entries = {}
         self.confirmations = {}
+        self.scan_id = None
+        self.workers = 4
+        self.ready = 0
         self.progress = dict(phase='idle', found=0, eligible=0, skipped=0, extracted=0, failed=0)
 
     def busy(self):
@@ -47,43 +53,76 @@ class Extractor:
         config = self.finder.config.resolve()
         return self.finder.exclude(path) or path == config or config in path.parents
 
-    def state(self):
+    def state(self, offset=0, limit=100):
         with self.finder.lock:
-            return dict(progress=dict(self.progress), busy=self.busy(),
-                rows=[{k: v for k, v in r.items() if k != 'signature'} for r in self.entries.values()])
+            offset = min(offset, len(self.entries))
+            page = islice(self.entries.values(), offset, offset + limit)
+            return dict(progress=dict(self.progress), busy=self.busy(), scan_id=self.scan_id,
+                total=len(self.entries), ready=self.ready,
+                rows=[{k: v for k, v in r.items() if k != 'signature'} for r in page])
 
-    def start(self, folder):
+    def selection(self):
+        with self.finder.lock:
+            if self.finder.busy():
+                raise ValueError('Wait for the current operation to finish')
+            return dict(scan_id=self.scan_id,
+                        ids=[row['id'] for row in self.entries.values() if row['status'] == 'ready'])
+
+    def start(self, folder, workers=4):
         with self.finder.lock:
             if self.finder.busy():
                 raise ValueError('Wait for the current operation to finish')
             root = self.finder.path(str(folder).strip())
             if not root.is_dir() or self.excluded(root):
                 raise ValueError('Choose a library folder outside quarantine and config')
+            if type(workers) is not int or not 1 <= workers <= 32:
+                raise ValueError('Choose between 1 and 32 extraction workers')
+            self.workers = workers
+            self.scan_id = secrets.token_hex(12)
             self.entries.clear()
+            self.ready = 0
             self.confirmations.clear()
             self.cancel.clear()
             self.progress = dict(phase='scanning', found=0, eligible=0, skipped=0, extracted=0, failed=0)
             self.thread = threading.Thread(target=self.scan, args=(root,), daemon=True)
             self.thread.start()
 
+    def candidates(self, root):
+        pending = [root]
+        while pending and not self.cancel.is_set():
+            directory = pending.pop()
+            # Resolve every directory again to reject replaced symlinks.
+            directory = self.finder.path(str(directory.relative_to(self.finder.media)))
+            with os.scandir(directory) as items:
+                for item in items:
+                    if self.cancel.is_set():
+                        return
+                    path = Path(item.path)
+                    if item.is_symlink() or self.excluded(path):
+                        continue
+                    if item.is_dir(follow_symlinks=False):
+                        pending.append(path)
+                    elif item.is_file(follow_symlinks=False) and path.suffix.lower() == '.m4a':
+                        yield path
+
+    def process(self, worker, items):
+        pending = set()
+        with ThreadPoolExecutor(max_workers=self.workers) as executor:
+            for item in items:
+                if self.cancel.is_set():
+                    break
+                pending.add(executor.submit(worker, item))
+                if len(pending) == self.workers:
+                    done, pending = wait(pending, return_when=FIRST_COMPLETED)
+                    for future in done:
+                        future.result()
+            for future in pending:
+                future.result()
+
     def scan(self, root):
         try:
-            pending = [root]
-            while pending and not self.cancel.is_set():
-                directory = pending.pop()
-                # Resolve every directory again to reject replaced symlinks.
-                directory = self.finder.path(str(directory.relative_to(self.finder.media)))
-                with os.scandir(directory) as items:
-                    for item in items:
-                        if self.cancel.is_set():
-                            break
-                        path = Path(item.path)
-                        if item.is_symlink() or self.excluded(path):
-                            continue
-                        if item.is_dir(follow_symlinks=False):
-                            pending.append(path)
-                        elif item.is_file(follow_symlinks=False) and path.suffix.lower() == '.m4a':
-                            self.inspect(path)
+            with closing(self.candidates(root)) as candidates:
+                self.process(self.inspect, candidates)
         except Cancelled:
             pass
         except Exception as error:
@@ -119,6 +158,7 @@ class Extractor:
             self.entries[row['id']] = row
             self.progress['found'] += 1
             self.progress['eligible' if row['status'] == 'ready' else 'failed' if row['status'] == 'error' else 'skipped'] += 1
+            self.ready += row['status'] == 'ready'
 
     def preview(self, ids):
         with self.finder.lock:
@@ -147,24 +187,30 @@ class Extractor:
 
     def run(self, ids):
         try:
-            for ident in ids:
-                if self.cancel.is_set():
-                    break
-                row = self.entries[ident]
-                try:
-                    self.extract_one(row)
-                    with self.finder.lock:
-                        row.update(status='extracted', detail='Verified FLAC saved; original M4A deleted')
-                        self.progress['extracted'] += 1
-                except Cancelled:
-                    break
-                except Exception as error:
-                    with self.finder.lock:
-                        row.update(status='error', detail=str(error))
-                        self.progress['failed'] += 1
+            self.process(self.extract_entry, ids)
+        except Cancelled:
+            pass
         finally:
             with self.finder.lock:
                 self.progress['phase'] = 'cancelled' if self.cancel.is_set() else 'complete'
+
+    def extract_entry(self, ident):
+        if self.cancel.is_set():
+            raise Cancelled()
+        row = self.entries[ident]
+        try:
+            self.extract_one(row)
+            with self.finder.lock:
+                row.update(status='extracted', detail='Verified FLAC saved; original M4A deleted')
+                self.progress['extracted'] += 1
+                self.ready -= 1
+        except Cancelled:
+            raise
+        except Exception as error:
+            with self.finder.lock:
+                row.update(status='error', detail=str(error))
+                self.progress['failed'] += 1
+                self.ready -= 1
 
     def extract_one(self, row):
         from library import command
