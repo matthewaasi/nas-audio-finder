@@ -10,7 +10,7 @@
   <Overview>Local audio metadata search with quarantine/restore, saved presets, persistent results and history, daily schedules, health checks, rich metadata filters, and exact/acoustic duplicate candidates. Includes optional lossless authenticity screening with evidence and same-folder context for isolated warnings. Load the release Docker archive before applying this template. No browser audio playback.</Overview>
   <Category>MediaApp:Music Tools:</Category>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
-  <Icon></Icon>
+  <Icon>https://raw.githubusercontent.com/matthewaasi/nas-audio-finder/main/docs/assets/icon.png</Icon>
   <ExtraParams>--stop-timeout=75</ExtraParams>
   <Config Name="Web GUI port" Target="8080" Default="8099" Mode="tcp" Description="Open http://your-unraid-ip:8099" Type="Port" Display="always" Required="true" Mask="false">8099</Config>
   <Config Name="Music library" Target="/music" Default="/mnt/user/media/Music" Mode="rw" Description="Local Unraid folder containing music. Read/write is required for deletion." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/media/Music</Config>

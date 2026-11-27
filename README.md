@@ -1,5 +1,7 @@
 # NAS Audio Finder
 
+<img src="docs/assets/icon.png" alt="NAS Audio Finder icon" width="160">
+
 Self-hosted audio metadata search and library cleanup for **Unraid and Docker**.
 Scan files directly on the NAS, inspect matches in a web GUI, and quarantine
 unwanted files with a restore option. No cloud service and no audio playback.
