@@ -18,7 +18,7 @@ jobs:
       - name: Determine release version
         run: |
           version=$(python3 -c 'from library import VERSION; print(VERSION)')
-          test "$version" = '2.4.0'
+          test "$version" = '2.4.1'
           echo "VERSION=$version" >> "$GITHUB_ENV"
           echo "TAG=v$version" >> "$GITHUB_ENV"
       - name: Install audio test tools
@@ -65,4 +65,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "v$VERSION — Parallel FLAC extraction and pagination" --notes-file RELEASE-NOTES.md --latest
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Matt's Audio Scout v$VERSION" --notes-file RELEASE-NOTES.md --latest

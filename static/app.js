@@ -37,7 +37,7 @@ function renderRows() {
 }
 async function loadRows() { const request=++requestNumber, params=query();params.set('offset',offset);params.set('limit',limit);const value=await api(`/api/results?${params}`);if(request!==requestNumber)return;rows=value.rows;total=value.total;if(offset>=total&&offset>0){offset=Math.max(0,Math.floor((total-1)/limit)*limit);return loadRows();}renderRows(); }
 function showState() {
-  const p=state.progress; $('phase').textContent=`v${state.version||'2.4.0'} · ${p.phase}`; for(const key of ['files','recent','read','cached','matches']) $(key).textContent=number(p[key]); $('root').textContent=state.root; $('message').textContent=p.message;
+  const p=state.progress; $('phase').textContent=`v${state.version||'2.4.1'} · ${p.phase}`; for(const key of ['files','recent','read','cached','matches']) $(key).textContent=number(p[key]); $('root').textContent=state.root; $('message').textContent=p.message;
   $('timing').textContent=`${p.elapsed.toFixed(1)}s elapsed · ${number(p.folders)} folders · Listing ${p.listing_seconds.toFixed(1)}s · Analysis ${p.duration_seconds.toFixed(1)} worker-s`;
   $('scan').disabled=!!state.busy; $('cancel').disabled=!['scanning','duplicates'].includes(p.phase); for(const id of [...fields,'deep_check','authenticity_check','loadPreset']) $(id).disabled=!!state.busy;
   document.querySelectorAll('#formatOptions input, #allFormats, #noFormats').forEach(e=>e.disabled=!!state.busy);

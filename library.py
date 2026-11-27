@@ -19,7 +19,7 @@ from authenticity import analyze, ANALYSIS_VERSION, folder_context
 
 from app import Finder, Handler, Cancelled, signature
 
-VERSION = "2.4.0"
+VERSION = "2.4.1"
 
 
 def command(args, cancel, timeout=60):

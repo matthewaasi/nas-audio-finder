@@ -1,3 +1,8 @@
+# v2.4.1
+
+- Rename the app to Matt's Audio Scout.
+- Add the app icon to the Unraid template.
+
 # v2.4.0
 
 - Scan and extract eligible M4A files with configurable parallel workers.

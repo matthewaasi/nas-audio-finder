@@ -27,7 +27,8 @@ for attempt in range(60):
         time.sleep(1)
 else:
     raise RuntimeError('Container did not start')
-assert state['version'] == '2.4.0', state
+assert state['version'] == '2.4.1', state
+assert "<title>Matt's Audio Scout</title>" in request("/")
 request('/api/scan', dict(folder='', days=0, minimum=0, maximum=120,
         workers=2, formats=['flac', 'mp3'], authenticity_check=True), state['csrf'])
 for attempt in range(120):
