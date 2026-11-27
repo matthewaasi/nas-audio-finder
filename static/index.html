@@ -1,6 +1,6 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NAS Audio Finder</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
-<body><header><div><span class="eyebrow">LOCAL MUSIC LIBRARY</span><h1>NAS Audio Finder<span class="dot"></span></h1><p>Find short tracks. Keep your library in order.</p></div><span id="phase" class="badge">Connecting</span></header>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Matt's Audio Scout</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body><header><div><span class="eyebrow">LOCAL MUSIC LIBRARY</span><h1>Matt's Audio Scout<span class="dot"></span></h1><p>Find short tracks. Keep your library in order.</p></div><span id="phase" class="badge">Connecting</span></header>
 <main><nav class="tabs" aria-label="Library tools"><button id="libraryTab" aria-current="page">Library search</button><button id="extractionTab">M4A to FLAC</button></nav><div id="libraryPanel"><section class="panel"><form id="scanForm"><div class="section-title"><h2>Search your library</h2><span id="root">/music</span></div><div class="filters">
 <label class="folder">Subfolder <input id="folder" placeholder="Entire library (or Artist/Album)"><small>Relative to the mounted music root</small></label>
 <label>Modified within <div class="unit"><input id="days" type="number" min="0" max="36500" step="any" value="7" required><span>days</span></div><small>0 = all dates</small></label>
@@ -40,6 +40,6 @@
 <p id="extractionStatus" role="status">Ready</p><div class="selection-actions"><button id="extractionAll" type="button">Select all ready files</button><button id="extractionClear" type="button">Clear selection</button><button id="extractionRun" class="danger" disabled>Extract selected and delete originals...</button><span id="extractionSelectedCount" class="muted">0 selected</span></div>
 <div class="table-wrap"><table><thead><tr><th>Select</th><th>M4A source</th><th>FLAC destination</th><th>Status</th></tr></thead><tbody id="extractionRows"></tbody></table></div><p id="extractionEmpty" class="muted">Find M4A files to begin. No files are changed by scanning.</p>
 <div class="pagination"><span id="extractionPageInfo">0 results</span><div><button id="extractionPrev" type="button" disabled>Previous page</button><button id="extractionNext" type="button" disabled>Next page</button></div></div>
-</section></main><footer>NAS Audio Finder · Files stay on your server · Duration cache persists in /config</footer>
+</section></main><footer>Matt's Audio Scout · Files stay on your server · Duration cache persists in /config</footer>
 <dialog id="deleteDialog"><h2 id="actionTitle">Confirm file action</h2><p id="actionDescription"></p><strong id="deleteCount"></strong><div id="deletePaths"></div><label class="ack"><input type="checkbox" id="ack"><span id="actionAcknowledgement">I reviewed every selected path.</span></label><div class="dialog-actions"><button id="dismissDelete">Cancel</button><button id="confirmDelete" disabled>Confirm</button></div></dialog>
 <div id="toast" role="alert" hidden></div></body></html>

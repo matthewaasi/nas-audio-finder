@@ -1,6 +1,6 @@
-# NAS Audio Finder
+# Matt's Audio Scout
 
-<img src="docs/assets/icon.png" alt="NAS Audio Finder icon" width="160">
+<img src="docs/assets/icon.png" alt="Matt's Audio Scout icon" width="160">
 
 Self-hosted audio metadata search and library cleanup for **Unraid and Docker**.
 Scan files directly on the NAS, inspect matches in a web GUI, and quarantine
